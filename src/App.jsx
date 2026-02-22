@@ -69,7 +69,7 @@ function Shell() {
           background: 'rgba(0,0,0,0.85)',
           backdropFilter: 'blur(30px)',
           WebkitBackdropFilter: 'blur(30px)',
-          paddingBottom: 'env(safe-area-inset-bottom, 16px)',
+          paddingBottom: 'env(safe-area-inset-bottom, 24px)',
         }}>
         <div className="flex items-center px-2 pt-1">
           {TABS.map(({ id, label, Icon }) => {

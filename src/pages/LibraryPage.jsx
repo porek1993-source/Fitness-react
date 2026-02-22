@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { Search, Dumbbell, ChevronRight, Star, BarChart2, X, HelpCircle, Loader, LayoutGrid, Wind, Zap, Box, Play } from 'lucide-react'
 import { useApp, haptic } from '../lib/useAppStore'
+import { getExerciseData } from '../lib/supabase'
 import { getFormTips, MUSCLE_LABELS } from '../lib/gemini'
 import MuscleMap from '../components/MuscleMap'
 
@@ -31,10 +32,18 @@ export default function LibraryPage() {
     return matchSearch && matchEquip && matchMuscle
   })
 
-  const loadTips = async (ex) => {
+  const loadDetails = async (ex) => {
     haptic([30])
+    setDetails(ex)
     setTips(null)
     setTipsLoading(true)
+
+    // Fetch enriched data (GIF, instructions etc) if not present
+    if (!ex.image_url || !ex.instructions) {
+      const enriched = await getExerciseData(ex.name)
+      if (enriched) setDetails(enriched)
+    }
+
     const t = await getFormTips(ex.name, muscleStatus, weeklyWorkouts)
     setTips(t)
     setTipsLoading(false)
@@ -101,7 +110,7 @@ export default function LibraryPage() {
       {/* List */}
       <div className="flex-1 overflow-y-auto px-4 pb-12 space-y-3">
         {filtered.map(ex => (
-          <button key={ex.id} onClick={() => { haptic([30]); setDetails(ex); loadTips(ex) }}
+          <button key={ex.id} onClick={() => loadDetails(ex)}
             className="w-full flex items-center gap-4 bg-card border border-border rounded-3xl p-3 border-l-4 transition-all active:scale-[0.98]"
             style={{ borderLeftColor: ex.difficulty === 'advanced' ? '#ff375f' : ex.difficulty === 'intermediate' ? '#ff9f0a' : '#30d158' }}>
             <div className="w-16 h-16 rounded-2xl bg-surface overflow-hidden flex-shrink-0">
@@ -180,17 +189,13 @@ export default function LibraryPage() {
               </div>
             </div>
 
-            {/* YouTube Guide Button */}
-            <a
-              href={`https://www.youtube.com/results?search_query=how+to+do+${encodeURIComponent(details.name)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => haptic([30])}
-              className="w-full flex items-center justify-center gap-2 py-4 mb-4 rounded-2xl bg-red/10 border border-red/20 text-red font-bold text-sm active:scale-[0.98] transition-all"
-            >
-              <Play className="w-4 h-4" />
-              Sledovat video průvodce
-            </a>
+            {/* GIF / Image Preview */}
+            <div className="w-full aspect-square rounded-[32px] bg-surface border border-border overflow-hidden mb-6 relative group">
+              <ExerciseImage exercise={details} size="100%" />
+              <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                <p className="text-[10px] text-white/80 font-mono text-center">Ukázka techniky</p>
+              </div>
+            </div>
 
             <button onClick={() => setDetails(null)}
               className="w-full py-4 rounded-2xl bg-white text-black font-black text-sm active:scale-[0.98] transition-all">

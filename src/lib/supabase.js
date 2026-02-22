@@ -11,7 +11,7 @@ export const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     autoRefreshToken: true,
-    persistSession:   true,
+    persistSession: true,
     detectSessionInUrl: true,
   },
   realtime: { params: { eventsPerSecond: 10 } },
@@ -47,6 +47,80 @@ export async function flushOfflineQueue() {
 
 export function getQueueLength() {
   return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]').length
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EXERCISE DATA ENRICHMENT (RapidAPI ExerciseDB)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getExerciseData(exerciseName) {
+  if (!exerciseName) return null
+
+  // 1. Check if exercise already exists in Supabase
+  const { data: existing, error: fetchError } = await supabase
+    .from('exercise_library')
+    .select('*')
+    .ilike('name', exerciseName)
+    .single()
+
+  if (existing) {
+    return existing
+  }
+
+  // 2. Fetch from ExerciseDB (RapidAPI)
+  const RAPID_API_KEY = import.meta.env.VITE_RAPIDAPI_KEY
+  if (!RAPID_API_KEY) {
+    console.warn('VITE_RAPIDAPI_KEY not found')
+    return null
+  }
+
+  try {
+    const url = `https://exercisedb.p.rapidapi.com/exercises/name/${encodeURIComponent(exerciseName.toLowerCase())}`
+    const options = {
+      method: 'GET',
+      headers: {
+        'x-rapidapi-key': RAPID_API_KEY,
+        'x-rapidapi-host': 'exercisedb.p.rapidapi.com'
+      }
+    }
+
+    const res = await fetch(url, options)
+    if (!res.ok) throw new Error(`RapidAPI error: ${res.status}`)
+
+    const apiData = await res.json()
+    if (!apiData || apiData.length === 0) return null
+
+    // Use the first match
+    const ex = apiData[0]
+
+    // 3. Map to our schema
+    const newRecord = {
+      name: ex.name.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      muscle_group: ex.target,
+      secondary_muscles: ex.secondaryMuscles || [],
+      equipment: ex.equipment.charAt(0).toUpperCase() + ex.equipment.slice(1),
+      instructions: ex.instructions ? ex.instructions.join('\n') : null,
+      image_url: ex.gifUrl,
+      difficulty: 'Intermediate', // Default
+    }
+
+    // 4. Insert into Supabase
+    const { data: inserted, error: insertError } = await supabase
+      .from('exercise_library')
+      .insert(newRecord)
+      .select()
+      .single()
+
+    if (insertError) {
+      console.error('Failed to cache exercise in Supabase:', insertError)
+      return newRecord // Return the record anyway so the UI can show it
+    }
+
+    return inserted
+  } catch (error) {
+    console.error('getExerciseData error:', error)
+    return null
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
