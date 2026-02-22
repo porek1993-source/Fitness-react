@@ -7,7 +7,7 @@
 const ENDPOINT = '/api/chat'
 
 // Muscle labels for natural language
-const MUSCLE_LABELS = {
+export const MUSCLE_LABELS = {
   chest: 'Hrudník', back: 'Záda', shoulders: 'Ramena',
   biceps: 'Biceps', triceps: 'Triceps', forearms: 'Předloktí',
   core: 'Břicho/Střed', glutes: 'Hýždě', quads: 'Kvadricepsy',
@@ -29,6 +29,8 @@ function buildContext(muscleStatus, recentWorkouts = []) {
   }).join('\n')
 
   return `Jsi Agile Coach, elitní AI fitness kouč. Jsi přímý, motivující a opíráš se o data. Mluv výhradně ČESKY.
+
+Při popisu cviku se vždy odkaž na techniku popsanou v tabulce exercise_library.instructions.
 
 AKTUÁLNÍ STAV SVALŮ (po započtení regenerace):
 ${fatigueLines || '  • Všechny svaly jsou plně zregenerovány'}

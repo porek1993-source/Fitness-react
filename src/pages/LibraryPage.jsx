@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { Search, Dumbbell, ChevronRight, Star, BarChart2, X, HelpCircle, Loader, LayoutGrid, Wind, Zap, Box, Play } from 'lucide-react'
 import { useApp, haptic } from '../lib/useAppStore'
-import { getFormTips } from '../lib/gemini'
+import { getFormTips, MUSCLE_LABELS } from '../lib/gemini'
 import MuscleMap from '../components/MuscleMap'
 
 const EQUIPMENT = [
@@ -90,7 +90,7 @@ export default function LibraryPage() {
           </div>
           <div className="flex-1">
             <p className="text-[10px] font-mono text-dim uppercase tracking-wider mb-1">Filtr svalů</p>
-            <p className="text-white font-black text-lg capitalize">{selectedMuscle || 'Všechny svaly'}</p>
+            <p className="text-white font-black text-lg capitalize">{selectedMuscle ? (MUSCLE_LABELS[selectedMuscle] || selectedMuscle) : 'Všechny svaly'}</p>
             {selectedMuscle && (
               <button onClick={() => setMuscle(null)} className="text-blue text-xs font-bold mt-1">Zrušit výběr</button>
             )}
@@ -116,7 +116,7 @@ export default function LibraryPage() {
               <div className="flex gap-2 mt-1">
                 <span className="text-[9px] font-mono text-muted uppercase">{ex.equipment}</span>
                 <span className="text-[9px] font-mono text-muted uppercase">·</span>
-                <span className="text-[9px] font-mono text-muted uppercase">{ex.muscle_group}</span>
+                <span className="text-[9px] font-mono text-muted uppercase">{MUSCLE_LABELS[ex.muscle_group] || ex.muscle_group}</span>
               </div>
             </div>
             <div className="w-8 h-8 rounded-xl bg-surface flex items-center justify-center text-dim flex-shrink-0">
@@ -136,7 +136,7 @@ export default function LibraryPage() {
 
             <div className="flex items-start justify-between mb-6">
               <div>
-                <p className="text-dim text-[10px] font-mono uppercase tracking-widest mb-1">{details.muscle_group}</p>
+                <p className="text-dim text-[10px] font-mono uppercase tracking-widest mb-1">{MUSCLE_LABELS[details.muscle_group] || details.muscle_group}</p>
                 <h2 className="text-2xl font-black text-white">{details.name}</h2>
               </div>
               <button onClick={() => setDetails(null)} className="p-2 text-dim"><X /></button>
@@ -180,6 +180,18 @@ export default function LibraryPage() {
               </div>
             </div>
 
+            {/* YouTube Guide Button */}
+            <a
+              href={`https://www.youtube.com/results?search_query=how+to+do+${encodeURIComponent(details.name)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => haptic([30])}
+              className="w-full flex items-center justify-center gap-2 py-4 mb-4 rounded-2xl bg-red/10 border border-red/20 text-red font-bold text-sm active:scale-[0.98] transition-all"
+            >
+              <Play className="w-4 h-4" />
+              Sledovat video průvodce
+            </a>
+
             <button onClick={() => setDetails(null)}
               className="w-full py-4 rounded-2xl bg-white text-black font-black text-sm active:scale-[0.98] transition-all">
               Rozumím
@@ -201,7 +213,7 @@ function ExerciseCard({ exercise: ex, onClick }) {
       <div className="flex-1 min-w-0">
         <p className="text-white font-bold text-sm truncate">{ex.name}</p>
         <p className="text-dim text-[10px] font-mono capitalize mt-0.5">
-          {ex.muscle_group} · {ex.equipment}
+          {MUSCLE_LABELS[ex.muscle_group] || ex.muscle_group} · {ex.equipment}
         </p>
         {ex.secondary_muscles?.length > 0 && (
           <p className="text-[9px] font-mono mt-0.5" style={{ color: '#3a3a4a' }}>
@@ -231,22 +243,29 @@ function ExerciseCard({ exercise: ex, onClick }) {
 
 // ── Exercise Image / Placeholder ──────────────────────────────────────────────
 function ExerciseImage({ exercise: ex, size = 52 }) {
+  const [loaded, setLoaded] = useState(false)
   const [imgError, setImgError] = useState(false)
   const showPlaceholder = !ex.image_url || imgError
 
   return (
-    <div className="flex-shrink-0 rounded-2xl overflow-hidden bg-surface border border-border flex items-center justify-center"
+    <div className={`flex-shrink-0 rounded-2xl overflow-hidden bg-surface border border-border flex items-center justify-center relative ${!loaded && !showPlaceholder ? 'animate-pulse' : ''}`}
       style={{ width: size, height: size }}>
+
+      {!loaded && !showPlaceholder && (
+        <div className="absolute inset-0 bg-white/5" />
+      )}
+
       {!showPlaceholder ? (
         <img
           src={ex.image_url} alt={ex.name}
-          className="w-full h-full object-cover"
+          className={`w-full h-full object-cover transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+          onLoad={() => setLoaded(true)}
           onError={() => setImgError(true)}
         />
       ) : (
         <div className="flex flex-col items-center justify-center w-full h-full bg-surface">
-          <Dumbbell className="text-dim" style={{ width: size * 0.36, height: size * 0.36 }} />
-          <p className="text-[8px] font-mono text-muted mt-0.5 capitalize px-1 text-center truncate w-full">
+          <Dumbbell className="text-dim/50" style={{ width: size * 0.4, height: size * 0.4 }} />
+          <p className="text-[7px] font-mono text-muted/60 mt-0.5 capitalize px-1 text-center truncate w-full">
             {ex.muscle_group}
           </p>
         </div>

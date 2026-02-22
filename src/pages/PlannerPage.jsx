@@ -2,7 +2,7 @@
 import { useState, useCallback } from 'react'
 import { ChevronRight, Zap, RefreshCw, Check, Settings } from 'lucide-react'
 import { useApp, haptic } from '../lib/useAppStore'
-import { optimizePlan } from '../lib/gemini'
+import { optimizePlan, MUSCLE_LABELS } from '../lib/gemini'
 import { readinessForDay, fatigueLabel } from '../lib/recovery'
 import { supabase } from '../lib/supabase'
 
@@ -116,7 +116,7 @@ export default function PlannerPage() {
                   <p className="text-sm font-bold text-white">{config.label}</p>
                   {config.muscles.length > 0 && (
                     <p className="text-[10px] font-mono text-dim capitalize">
-                      {config.muscles.slice(0, 3).join(' · ')}
+                      {config.muscles.map(m => MUSCLE_LABELS[m] || m).slice(0, 3).join(' · ')}
                     </p>
                   )}
                 </div>
@@ -129,7 +129,7 @@ export default function PlannerPage() {
             <div className="flex items-center gap-2 flex-shrink-0">
               <div className="text-right">
                 <p className="text-xs font-black" style={{ color: config.color }}>{score}%</p>
-                <p className="text-[9px] font-mono text-dim">ready</p>
+                <p className="text-[9px] font-mono text-dim">připraven</p>
               </div>
               <ChevronRight className={`w-4 h-4 text-dim transition-transform ${expanded ? 'rotate-90' : ''}`} />
             </div>
@@ -138,7 +138,7 @@ export default function PlannerPage() {
           {isToday && !editing && (
             <div className="flex-shrink-0 px-2 py-0.5 rounded-full text-[9px] font-mono font-black"
               style={{ background: `${config.color}20`, color: config.color }}>
-              TODAY
+              DNES
             </div>
           )}
         </button>
@@ -152,7 +152,7 @@ export default function PlannerPage() {
                 <div key={id} className="flex items-center gap-3">
                   <div className="w-2 h-2 rounded-full flex-shrink-0"
                     style={{ background: lbl.color }} />
-                  <span className="text-xs text-subtle capitalize flex-1">{id}</span>
+                  <span className="text-xs text-subtle capitalize flex-1">{MUSCLE_LABELS[id] || id}</span>
                   <div className="w-24 h-1.5 bg-surface rounded-full overflow-hidden">
                     <div className="h-full rounded-full"
                       style={{ width: `${fatigue}%`, background: lbl.color, transition: 'width 0.5s ease' }} />

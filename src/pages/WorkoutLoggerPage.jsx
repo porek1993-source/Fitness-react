@@ -2,7 +2,7 @@
 import { useState, useRef, useCallback } from 'react'
 import { Search, Plus, Check, Trash2, ChevronDown, Dumbbell, HelpCircle, X, Loader } from 'lucide-react'
 import { useApp, haptic } from '../lib/useAppStore'
-import { getFormTips } from '../lib/gemini'
+import { getFormTips, MUSCLE_LABELS } from '../lib/gemini'
 
 const WORKOUT_TYPES = {
   push: { label: 'Tlaky (Push)', color: '#ff375f', muscles: ['chest', 'shoulders', 'triceps'] },
@@ -169,7 +169,7 @@ export default function WorkoutLoggerPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-white text-sm font-semibold truncate">{ex.name}</p>
-                  <p className="text-dim text-[10px] font-mono capitalize">{ex.muscle_group} · {ex.equipment}</p>
+                  <p className="text-dim text-[10px] font-mono capitalize">{MUSCLE_LABELS[ex.muscle_group] || ex.muscle_group} · {ex.equipment}</p>
                 </div>
                 <span className="text-[10px] font-mono text-dim bg-surface rounded-full px-2 py-0.5">
                   {ex.difficulty}
@@ -195,7 +195,7 @@ export default function WorkoutLoggerPage() {
               <div className="flex-1">
                 <h3 className="text-white font-black text-base">{selected.name}</h3>
                 <p className="text-dim text-xs font-mono capitalize">
-                  {selected.muscle_group} · {selected.equipment}
+                  {MUSCLE_LABELS[selected.muscle_group] || selected.muscle_group} · {selected.equipment}
                 </p>
               </div>
 

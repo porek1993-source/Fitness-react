@@ -72,8 +72,8 @@ export default function CoachPage() {
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} animate-slide-up`}>
             <div className={`max-w-[85%] px-4 py-3 rounded-[24px] text-sm leading-relaxed ${m.role === 'user'
-                ? 'bg-blue text-white rounded-tr-none shadow-lg shadow-blue/10'
-                : 'bg-card border border-border text-subtle rounded-tl-none'
+              ? 'bg-blue text-white rounded-tr-none shadow-lg shadow-blue/10'
+              : 'bg-card border border-border text-subtle rounded-tl-none'
               }`}>
               <div dangerouslySetInnerHTML={{
                 __html: (m.content || m.text || '')
@@ -193,5 +193,5 @@ function MessageBubble({ message: msg }) {
 }
 
 function now() {
-  return new Date().toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' })
+  return new Date().toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })
 }

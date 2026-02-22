@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { Zap, TrendingUp, Clock, ChevronRight, Wifi, WifiOff, RefreshCw } from 'lucide-react'
 import { useApp, haptic } from '../lib/useAppStore'
-import { getProactiveGreeting } from '../lib/gemini'
+import { getProactiveGreeting, MUSCLE_LABELS } from '../lib/gemini'
 import { applyDecayToStatus, fatigueLabel, hoursUntilRecovered, readinessScore } from '../lib/recovery'
 import MuscleMap from '../components/MuscleMap'
 
@@ -124,7 +124,7 @@ export default function DashboardPage() {
               style={{ color: todayConfig.color }}>DNES</p>
             <p className="text-white text-lg font-black">{todayConfig.label}</p>
             <p className="text-subtle text-xs mt-0.5">
-              {todayConfig.muscles.slice(0, 3).join(' · ')}
+              {todayConfig.muscles.map(m => MUSCLE_LABELS[m] || m).slice(0, 3).join(' · ')}
               {todayConfig.muscles.length > 3 && ` +${todayConfig.muscles.length - 3}`}
             </p>
           </div>
@@ -175,7 +175,7 @@ export default function DashboardPage() {
                     style={{ background: lbl.color, boxShadow: `0 0 6px ${lbl.color}` }} />
                   <div className="flex-1">
                     <div className="flex justify-between items-center mb-1">
-                      <span className="text-sm text-white font-semibold capitalize">{id}</span>
+                      <span className="text-sm text-white font-semibold capitalize">{MUSCLE_LABELS[id] || id}</span>
                       <span className="text-xs font-mono" style={{ color: lbl.color }}>
                         {Math.round(data.fatigue)}%
                       </span>
