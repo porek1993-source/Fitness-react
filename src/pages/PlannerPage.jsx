@@ -1,10 +1,11 @@
 // src/pages/PlannerPage.jsx
 import { useState, useCallback } from 'react'
-import { ChevronRight, Zap, RefreshCw, Check, Settings } from 'lucide-react'
+import { ChevronRight, Zap, RefreshCw, Check, Settings, Bed, Play, Info, X, Dumbbell, Loader } from 'lucide-react'
 import { useApp, haptic } from '../lib/useAppStore'
 import { optimizePlan, MUSCLE_LABELS } from '../lib/gemini'
 import { readinessForDay, fatigueLabel } from '../lib/recovery'
 import { supabase } from '../lib/supabase'
+import { ensureExerciseImage } from '../lib/exercises'
 
 import { Calendar, Sparkles } from 'lucide-react' // Added Sparkles and Calendar
 
@@ -28,9 +29,28 @@ const DAYS = [
   { id: '0', label: 'Neděle', short: 'Ne' },
 ]
 
+const MUSCLES_BY_TYPE = {
+  push: ['chest', 'shoulders', 'triceps'],
+  pull: ['back', 'biceps', 'forearms'],
+  legs: ['quads', 'hamstrings', 'calves', 'glutes'],
+  upper: ['chest', 'back', 'shoulders', 'biceps', 'triceps'],
+  lower: ['quads', 'hamstrings', 'calves', 'glutes'],
+  fullbody: ['chest', 'back', 'shoulders', 'legs', 'core'],
+  rest: []
+}
+
+function configForType(type) {
+  return {
+    ...(WORKOUT_TYPES[type] || WORKOUT_TYPES.rest),
+    muscles: MUSCLES_BY_TYPE[type] || []
+  }
+}
+
 export default function PlannerPage() {
   const { profile, updateProfile, muscleStatus, exercises } = useApp()
   const [editingDay, setEditingDay] = useState(null)
+  const [selectedDay, setSelectedDay] = useState(null) // New: for Viewing Workout
+  const [selectedExercise, setSelectedExercise] = useState(null) // New: for Exercise Tech Detail
   const [isUpdating, setIsUpdating] = useState(false)
   const [planSummary, setPlanSummary] = useState(null)
   const [isLoadingSummary, setIsLoadingSummary] = useState(false)
@@ -99,130 +119,108 @@ export default function PlannerPage() {
     }
   }
 
-  // ── Day Row Component ─────────────────────────────────────────────────────────
-  function DayRow({ dayIdx, dayName, dateStr, config, workoutType, score, isToday, editing, onTypeChange, muscleStatus }) {
-    const [expanded, setExpanded] = useState(false)
+  // ── Exercise Image Component (Fixed for Safari/CORS) ──────────────────────────
+  function ExerciseImage({ exercise: ex, size = 52, color }) {
+    const [loaded, setLoaded] = useState(false)
+    const [loading, setLoading] = useState(true)
+    const [imgError, setImgError] = useState(false)
+    const [imageUrl, setImageUrl] = useState(ex?.image_url)
 
-    const muscleStatuses = config.muscles.map(m => ({
+    useEffect(() => {
+      if (!ex?.image_url) {
+        ensureExerciseImage(ex).then(url => {
+          if (url) setImageUrl(url)
+          setLoading(false)
+        })
+      } else {
+        setLoading(false)
+      }
+    }, [ex])
+
+    const showPlaceholder = !imageUrl || imgError
+
+    return (
+      <div className={`flex-shrink-0 rounded-2xl overflow-hidden bg-surface border border-border flex items-center justify-center relative`}
+        style={{ width: size, height: size }}>
+
+        {loading && !showPlaceholder && (
+          <div className="absolute inset-0 flex items-center justify-center bg-surface z-10">
+            <Loader className="w-5 h-5 animate-spin" style={{ color: color || '#0a84ff' }} />
+          </div>
+        )}
+
+        {!showPlaceholder ? (
+          <img
+            src={imageUrl} alt={ex.name}
+            crossOrigin="anonymous"
+            referrerPolicy="no-referrer"
+            className={`w-full h-full object-cover transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+            onLoad={() => { setLoaded(true); setLoading(false) }}
+            onError={() => {
+              console.error("Image load error for:", ex.name);
+              setImgError(true);
+              setLoading(false)
+            }}
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center w-full h-full bg-surface">
+            <Dumbbell className="text-dim/50" style={{ width: size * 0.4, height: size * 0.4 }} />
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── Day Row Component ─────────────────────────────────────────────────────────
+  function DayRow({ dayIdx, dayName, dateStr, config, workoutType, score, isToday, muscleStatus }) {
+    const muscleStatuses = (config.muscles || []).map(m => ({
       id: m,
       fatigue: muscleStatus?.[m]?.fatigue || 0,
     })).sort((a, b) => b.fatigue - a.fatigue)
 
-    return (
-      <div className="bg-card border rounded-2xl overflow-hidden transition-all"
-        style={{ borderColor: isToday ? `${config.color}35` : '#1c1c28' }}>
+    const isRest = workoutType === 'rest'
 
-        {/* Row header */}
+    return (
+      <div className={`bg-card border rounded-[32px] overflow-hidden transition-all active:scale-[0.98] ${isToday ? 'border-blue/40 shadow-lg shadow-blue/5' : 'border-border'
+        }`}>
         <button
-          onClick={() => { if (!editing) { haptic([25]); setExpanded(e => !e) } }}
-          className="w-full flex items-center gap-3 p-3.5 text-left"
+          onClick={() => { haptic([25]); setSelectedDay(dayIdx) }}
+          className="w-full flex items-center gap-4 p-5 text-left"
         >
-          {/* Day label */}
-          <div className="w-12 flex-shrink-0">
-            <p className="text-[10px] font-mono font-bold" style={{ color: isToday ? config.color : '#555570' }}>
+          {/* Day & Date */}
+          <div className="w-14">
+            <p className={`text-xs font-black ${isToday ? 'text-blue' : 'text-dim'}`}>
               {dayName.slice(0, 3).toUpperCase()}
             </p>
-            <p className="text-[9px] font-mono text-muted">{dateStr}</p>
+            <p className="text-[10px] font-mono text-muted">{dateStr}</p>
           </div>
 
-          {/* Workout type selector (edit mode) or display */}
-          {editing ? (
-            <select
-              value={workoutType}
-              onChange={e => onTypeChange(dayIdx, e.target.value)}
-              onClick={e => e.stopPropagation()}
-              className="flex-1 bg-surface border border-border rounded-xl px-3 py-2 text-sm font-bold outline-none"
-              style={{ color: config.color }}
-            >
-              {Object.entries(WORKOUT_TYPES).map(([id, cfg]) => (
-                <option key={id} value={id}>{cfg.emoji} {cfg.label}</option>
-              ))}
-            </select>
+          {/* Workout Type */}
+          <div className="flex-1 flex items-center gap-3">
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl bg-surface border border-border`}>
+              {isRest ? '☕' : config.emoji}
+            </div>
+            <div>
+              <p className="text-sm font-black text-white">{isRest ? 'Odpočinek' : config.label}</p>
+              {!isRest && (
+                <p className="text-[10px] font-mono text-dim capitalize">
+                  {config.muscles.map(m => MUSCLE_LABELS[m] || m).slice(0, 2).join(' · ')}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Ready & Button */}
+          {!isRest ? (
+            <div className="text-right">
+              <p className="text-sm font-black text-blue">{score}%</p>
+              <p className="text-[8px] font-mono text-dim uppercase tracking-widest">Ready</p>
+            </div>
           ) : (
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <span className="text-base">{config.emoji}</span>
-                <div>
-                  <p className="text-sm font-bold text-white">{config.label}</p>
-                  {config.muscles.length > 0 && (
-                    <p className="text-[10px] font-mono text-dim capitalize">
-                      {config.muscles.map(m => MUSCLE_LABELS[m] || m).slice(0, 3).join(' · ')}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
+            <Bed className="w-5 h-5 text-dim" />
           )}
-
-          {/* Readiness indicator */}
-          {!editing && config.muscles.length > 0 && (
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <div className="text-right">
-                <p className="text-xs font-black" style={{ color: config.color }}>{score}%</p>
-                <p className="text-[9px] font-mono text-dim">připraven</p>
-              </div>
-              <ChevronRight className={`w-4 h-4 text-dim transition-transform ${expanded ? 'rotate-90' : ''}`} />
-            </div>
-          )}
-
-          {isToday && !editing && (
-            <div className="flex-shrink-0 px-2 py-0.5 rounded-full text-[9px] font-mono font-black"
-              style={{ background: `${config.color}20`, color: config.color }}>
-              DNES
-            </div>
-          )}
+          <ChevronRight className="w-5 h-5 text-dim/50" />
         </button>
-
-        {/* Readiness Warning Banner */}
-        {!editing && config.muscles.length > 0 && score < 35 && (
-          <div className="mx-3.5 mb-2 px-3 py-2 rounded-xl bg-red/10 border border-red/20 flex items-center gap-2">
-            <Zap className="w-3.5 h-3.5 text-red" />
-            <p className="text-[10px] font-bold text-red">Vysoká únava! Zvažte lehčí váhy nebo jiný trénink.</p>
-          </div>
-        )}
-
-        {/* Expanded detail */}
-        {expanded && !editing && config.muscles.length > 0 && (
-          <div className="px-3.5 pb-3.5 border-t border-border pt-3 space-y-4">
-            {/* Muscle Breakdown */}
-            <div className="space-y-2">
-              <p className="text-[9px] font-mono text-dim uppercase tracking-wider mb-2">Stav připravenosti svalů</p>
-              {muscleStatuses.map(({ id, fatigue }) => {
-                const lbl = fatigueLabel(fatigue)
-                return (
-                  <div key={id} className="flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full flex-shrink-0"
-                      style={{ background: lbl.color }} />
-                    <span className="text-xs text-subtle capitalize flex-1">{MUSCLE_LABELS[id] || id}</span>
-                    <div className="w-24 h-1.5 bg-surface rounded-full overflow-hidden">
-                      <div className="h-full rounded-full"
-                        style={{ width: `${fatigue}%`, background: lbl.color, transition: 'width 0.5s ease' }} />
-                    </div>
-                    <span className="text-[10px] font-mono w-12 text-right" style={{ color: lbl.color }}>
-                      {Math.round(fatigue)}%
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-
-            {/* Suggestions */}
-            <div className="space-y-2">
-              <p className="text-[9px] font-mono text-dim uppercase tracking-wider">Doporučené cviky</p>
-              <div className="flex flex-wrap gap-1.5">
-                {exercises
-                  .filter(ex => config.muscles.includes(ex.muscle_group))
-                  .slice(0, 5)
-                  .map(ex => (
-                    <div key={ex.id} className="px-2.5 py-1.5 rounded-xl bg-surface border border-border text-[10px] font-bold text-white">
-                      {ex.name}
-                    </div>
-                  ))
-                }
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     )
   }
@@ -235,92 +233,157 @@ export default function PlannerPage() {
         <p className="text-dim text-xs font-mono">Nastavte si svůj týdenní split</p>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pb-12 space-y-6 scrollbar-none">
+      <div className="flex-1 overflow-y-auto px-4 pb-32 space-y-6 scrollbar-none">
 
-        {/* Readiness Card */}
-        <div className="bg-gradient-to-br from-blue/20 to-purple/10 border border-blue/20 rounded-[32px] p-6 relative overflow-hidden">
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-4">
-              <Calendar className="w-4 h-4 text-blue" />
-              <p className="text-[10px] font-black text-white uppercase tracking-widest">Přehled týdne</p>
-            </div>
-            <div className="grid grid-cols-7 gap-2">
-              {DAYS.map(d => {
-                const type = split[d.id]
-                const cfg = WORKOUT_TYPES[type] || WORKOUT_TYPES.rest
-                return (
-                  <div key={d.id} className="text-center">
-                    <p className="text-[10px] font-bold text-dim mb-2">{d.short}</p>
-                    <div className="w-full aspect-square rounded-xl bg-surface border border-border flex items-center justify-center text-lg">
-                      {cfg.emoji}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-          <div className="absolute -right-4 -bottom-4 w-32 h-32 bg-blue/10 blur-3xl rounded-full" />
-        </div>
-
-        {/* List of Days */}
-        <div className="space-y-3">
-          <p className="text-dim text-[10px] font-mono uppercase tracking-widest px-1">Upravit dny</p>
+        {/* List of Days (The New Planner Focal Point) */}
+        <div className="space-y-4">
           {DAYS.map(d => {
             const type = split[d.id]
             const cfg = WORKOUT_TYPES[type] || WORKOUT_TYPES.rest
+            const today = new Date()
+            const dayOfToday = today.getDay()
+            const isToday = parseInt(d.id) === dayOfToday
+
+            // Calculate readiness score for this day (simplified mockup for now)
+            const score = configForType(type).muscles.length > 0
+              ? readinessForDay(configForType(type).muscles, muscleStatus, (parseInt(d.id) - dayOfToday + 7) % 7)
+              : 100
+
             return (
-              <button key={d.id} onClick={() => { haptic([20]); setEditingDay(d.id) }}
-                className="w-full flex items-center justify-between bg-card border border-border rounded-3xl p-4 transition-all active:scale-[0.99] hover:border-blue/30">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-2xl bg-surface border border-border flex items-center justify-center text-xl">
-                    {cfg.emoji}
-                  </div>
-                  <div className="text-left">
-                    <p className="text-white font-bold text-sm">{d.label}</p>
-                    <p className="text-dim text-[10px] font-mono uppercase">{cfg.label}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className={`w-1.5 h-1.5 rounded-full ${type === 'rest' ? 'bg-dim' : 'bg-blue pulse'}`} />
-                  <ChevronRight className="w-4 h-4 text-dim" />
-                </div>
-              </button>
+              <DayRow
+                key={d.id}
+                dayIdx={d.id}
+                dayName={d.label}
+                dateStr={d.short}
+                config={configForType(type)}
+                workoutType={type}
+                score={score}
+                isToday={isToday}
+                muscleStatus={muscleStatus}
+              />
             )
           })}
         </div>
-
-        {/* AI Optimization section */}
-        <div className="bg-card border border-border rounded-[32px] p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-red" />
-              <h3 className="text-white font-black">AI Optimalizace</h3>
-            </div>
-            <button
-              onClick={generateOptimization}
-              disabled={isLoadingSummary}
-              className="text-[10px] font-black text-blue uppercase tracking-widest bg-blue/10 px-3 py-1.5 rounded-full"
-            >
-              {isLoadingSummary ? 'Analyzuji...' : 'Analyzovat plán'}
-            </button>
-          </div>
-
-          {!planSummary && !isLoadingSummary ? (
-            <p className="text-subtle text-xs leading-relaxed">
-              Nechte AI zkontrolovat váš plán vzhledem k aktuální únavě svalů a vašim cílům.
-            </p>
-          ) : isLoadingSummary ? (
-            <div className="space-y-2">
-              <div className="h-2 bg-white/5 rounded-full w-full animate-pulse" />
-              <div className="h-2 bg-white/5 rounded-full w-4/5 animate-pulse" />
-              <div className="h-2 bg-white/5 rounded-full w-2/3 animate-pulse" />
-            </div>
-          ) : (
-            <div className="text-subtle text-xs leading-relaxed space-y-3"
-              dangerouslySetInnerHTML={{ __html: planSummary.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1').replace(/\n/g, '<br/>') }} />
-          )}
-        </div>
       </div>
+
+      {/* Day Interaction Modal (Viewing Workout or Changing Type) */}
+      {selectedDay && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center animate-slide-up">
+          <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setSelectedDay(null)} />
+          <div className="relative w-full max-w-lg bg-card border-t border-border rounded-t-[40px] px-6 pt-10 pb-12 max-h-[90vh] flex flex-col">
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-border rounded-full" />
+
+            {/* Modal Header */}
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h2 className="text-2xl font-black text-white">{DAYS.find(d => d.id === selectedDay)?.label}</h2>
+                <p className="text-dim text-xs font-mono uppercase">{configForType(split[selectedDay]).label}</p>
+              </div>
+              <button onClick={() => { haptic([20]); setEditingDay(selectedDay); setSelectedDay(null) }}
+                className="p-3 rounded-2xl bg-surface border border-border text-dim hover:text-blue">
+                <Settings className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Workout Detail or Rest Day Prompt */}
+            <div className="flex-1 overflow-y-auto min-h-0 space-y-6 pb-6">
+              {split[selectedDay] === 'rest' ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center">
+                  <div className="w-20 h-20 rounded-full bg-surface border border-border flex items-center justify-center text-4xl mb-4">☕</div>
+                  <h3 className="text-lg font-bold text-white">Dnes je čas na regeneraci</h3>
+                  <p className="text-dim text-sm max-w-[240px] mt-2 mb-8">Svaly potřebují čas na růst a obnovu.</p>
+
+                  <button onClick={() => { haptic([30]); setEditingDay(selectedDay); setSelectedDay(null) }}
+                    className="text-xs font-bold text-blue bg-blue/10 px-6 py-3 rounded-2xl border border-blue/20">
+                    Změnit na trénink
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between px-1">
+                    <p className="text-xs font-black text-white uppercase tracking-widest">Seznam cviků</p>
+                    <button onClick={() => { handleDayUpdateWithShift('rest', true); setSelectedDay(null) }}
+                      className="flex items-center gap-2 text-[10px] font-black text-dim uppercase tracking-widest bg-surface border border-border px-3 py-1.5 rounded-xl hover:text-white transition-colors">
+                      <Bed className="w-3 h-3" /> Nastavit Volno
+                    </button>
+                  </div>
+                  <div className="space-y-4">
+                    {exercises
+                      .filter(ex => configForType(split[selectedDay]).muscles.includes(ex.muscle_group))
+                      .slice(0, 6)
+                      .map(ex => (
+                        <button key={ex.id} onClick={() => { haptic([15]); setSelectedExercise(ex) }}
+                          className="w-full flex items-center gap-4 bg-surface/50 border border-border p-3 rounded-[24px] hover:border-blue/30 transition-all group text-left">
+                          <ExerciseImage exercise={ex} size={48} />
+                          <div className="flex-1">
+                            <p className="text-sm font-bold text-white group-hover:text-blue transition-colors line-clamp-1">{ex.name}</p>
+                            <p className="text-[10px] text-dim capitalize">{MUSCLE_LABELS[ex.muscle_group] || ex.muscle_group} · 3-4 série</p>
+                          </div>
+                          <Info className="w-4 h-4 text-dim/30 group-hover:text-dim transition-colors" />
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {split[selectedDay] !== 'rest' && (
+              <button
+                onClick={() => { haptic([40]); setSelectedDay(null); /* Action to start workout could go here */ }}
+                className="w-full py-4 rounded-2xl bg-blue text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue/20">
+                <Play className="w-4 h-4 fill-current" /> Začít trénink
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Exercise Detail Modal (Same logic as Library but integrated) */}
+      {selectedExercise && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 animate-fade-in">
+          <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setSelectedExercise(null)} />
+          <div className="relative w-full max-w-lg h-[85vh] bg-card border border-border rounded-[40px] flex flex-col overflow-hidden shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-border">
+              <div className="flex-1">
+                <h3 className="text-xl font-black text-white">{selectedExercise.name}</h3>
+                <p className="text-[10px] font-mono text-dim uppercase tracking-widest mt-1">
+                  {MUSCLE_LABELS[selectedExercise.muscle_group] || selectedExercise.muscle_group}
+                </p>
+              </div>
+              <button onClick={() => setSelectedExercise(null)}
+                className="w-10 h-10 rounded-2xl bg-surface border border-border flex items-center justify-center text-dim">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto">
+              <div className="aspect-square w-full bg-black relative">
+                <ExerciseImage exercise={selectedExercise} size="100%" />
+              </div>
+
+              <div className="p-6 space-y-6">
+                <div className="space-y-3">
+                  <p className="text-[10px] font-black text-white uppercase tracking-widest">Technika provedení</p>
+                  <div className="text-subtle text-xs leading-relaxed space-y-2">
+                    {selectedExercise.instructions ? (
+                      selectedExercise.instructions.split('. ').map((step, i) => (
+                        <div key={i} className="flex gap-3">
+                          <span className="text-blue font-mono font-bold">{i + 1}.</span>
+                          <p>{step}.</p>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="italic text-dim">Návod k tomuto cviku se připravuje...</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Editing Modal */}
       {editingDay && (

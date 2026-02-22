@@ -30,7 +30,10 @@ export async function ensureExerciseImage(exercise) {
         const data = await response.json()
 
         if (Array.isArray(data) && data.length > 0) {
-            const gifUrl = data[0].gifUrl
+            let gifUrl = data[0].gifUrl
+            if (gifUrl && gifUrl.startsWith('http://')) {
+                gifUrl = gifUrl.replace('http://', 'https://')
+            }
 
             // Update Supabase so we have it permanently
             await supabase

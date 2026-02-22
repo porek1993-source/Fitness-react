@@ -285,6 +285,18 @@ export function AppProvider({ children }) {
     setTab: (tab) => dispatch({ type: 'SET_TAB', payload: tab }),
     setMuscle: (muscle) => dispatch({ type: 'SET_MUSCLE', payload: muscle }),
     refreshWorkouts: () => loadRecentWorkouts(state.user?.id),
+    updateProfile: async (updates) => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', state.user.id)
+        .select()
+        .single()
+      if (!error && data) {
+        dispatch({ type: 'SET_PROFILE', payload: data })
+      }
+      return { data, error }
+    }
   }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>

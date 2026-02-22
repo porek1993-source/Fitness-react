@@ -303,6 +303,7 @@ function ExerciseImage({ exercise: ex, size = 52 }) {
         <img
           src={imageUrl} alt={ex.name}
           crossOrigin="anonymous"
+          referrerPolicy="no-referrer"
           className={`w-full h-full object-cover transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
           onLoad={() => { setLoaded(true); setLoading(false) }}
           onError={(e) => {
