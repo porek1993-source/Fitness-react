@@ -198,13 +198,35 @@ export function AppProvider({ children }) {
     haptic([50, 30, 80]) // Completion haptic
   }, [state.user, state.muscleStatus, state.onlineStatus, loadRecentWorkouts])
 
+  const logActivity = useCallback(async (activityType, intensityMultiplier = 1) => {
+    const { ACTIVITY_IMPACTS } = await import('./recovery')
+    const impactData = ACTIVITY_IMPACTS[activityType]
+    if (!impactData) return
+
+    const fatigueIncrease = {}
+    Object.entries(impactData.impact).forEach(([muscle, baseVal]) => {
+      fatigueIncrease[muscle] = baseVal * intensityMultiplier
+    })
+
+    const newMuscleStatus = mergeFatigue(state.muscleStatus, fatigueIncrease)
+    dispatch({ type: 'UPDATE_MUSCLES', payload: newMuscleStatus })
+
+    if (state.user) {
+      await supabase
+        .from('profiles')
+        .update({ muscle_status: newMuscleStatus, updated_at: new Date().toISOString() })
+        .eq('id', state.user.id)
+    }
+    haptic([40, 20, 40])
+  }, [state.muscleStatus, state.user])
+
   const updateMuscleStatus = useCallback(async (updates) => {
     const newStatus = { ...state.muscleStatus, ...updates }
     dispatch({ type: 'UPDATE_MUSCLES', payload: newStatus })
     if (state.user) {
       await supabase
         .from('profiles')
-        .update({ muscle_status: newStatus })
+        .update({ muscle_status: newStatus, updated_at: new Date().toISOString() })
         .eq('id', state.user.id)
     }
   }, [state.muscleStatus, state.user])
@@ -219,6 +241,7 @@ export function AppProvider({ children }) {
     signUp,
     signOut,
     logWorkout,
+    logActivity, // Added
     updateMuscleStatus,
     getDecayedMuscleStatus,
     setTab: (tab) => dispatch({ type: 'SET_TAB', payload: tab }),

@@ -160,3 +160,26 @@ export function hoursUntilRecovered(fatigue, targetFatigue = 30) {
   const h = 24 * Math.log(targetFatigue / fatigue) / Math.log(0.8)
   return Math.max(0, Math.round(h))
 }
+
+export const ACTIVITY_IMPACTS = {
+  running: {
+    label: 'Běh',
+    emoji: '🏃',
+    impact: { quads: 35, hamstrings: 35, calves: 25, glutes: 20, core: 10 }
+  },
+  cycling: {
+    label: 'Kolo',
+    emoji: '🚲',
+    impact: { quads: 45, hamstrings: 25, calves: 20, glutes: 15 }
+  },
+  football: {
+    label: 'Fotbal',
+    emoji: '⚽',
+    impact: { quads: 40, hamstrings: 40, calves: 30, glutes: 25, core: 15 }
+  },
+  swimming: {
+    label: 'Plavání',
+    emoji: '🏊',
+    impact: { back: 30, shoulders: 30, core: 20, chest: 10, triceps: 10 }
+  }
+}

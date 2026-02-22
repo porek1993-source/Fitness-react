@@ -1,9 +1,10 @@
 // src/pages/DashboardPage.jsx
 import { useEffect, useState } from 'react'
-import { Zap, TrendingUp, Clock, ChevronRight, Wifi, WifiOff, RefreshCw } from 'lucide-react'
+import { Zap, Activity, TrendingUp, Clock, ChevronRight, RefreshCw, Sliders, Footprints } from 'lucide-react'
 import { useApp, haptic } from '../lib/useAppStore'
-import { getProactiveGreeting, MUSCLE_LABELS } from '../lib/gemini'
-import { applyDecayToStatus, fatigueLabel, hoursUntilRecovered, readinessScore } from '../lib/recovery'
+import { getProactiveGreeting } from '../lib/gemini'
+import { MUSCLE_LABELS } from '../lib/gemini'
+import { fatigueLabel, hoursUntilRecovered, readinessScore, ACTIVITY_IMPACTS } from '../lib/recovery'
 import MuscleMap from '../components/MuscleMap'
 
 const WORKOUT_CONFIGS = {
@@ -19,9 +20,13 @@ const WORKOUT_CONFIGS = {
 const DAYS = ['Ne', 'Po', 'Út', 'St', 'Čt', 'Pá', 'So']
 
 export default function DashboardPage() {
-  const { profile, muscleStatus, weeklyWorkouts, pendingSync, onlineStatus, setTab, getDecayedMuscleStatus } = useApp()
+  const { profile, muscleStatus, weeklyWorkouts, pendingSync, onlineStatus, setTab, getDecayedMuscleStatus, updateMuscleStatus, logActivity } = useApp()
   const [greeting, setGreeting] = useState(null)
   const [greetLoad, setGreetLoad] = useState(true)
+  const [showFatigueModal, setShowFatigueModal] = useState(false)
+  const [showActivityModal, setShowActivityModal] = useState(false)
+  const [activityType, setActivityType] = useState('running')
+  const [activityIntensity, setActivityIntensity] = useState(1.0)
 
   const decayed = getDecayedMuscleStatus()
   const todayDow = new Date().getDay()
@@ -149,53 +154,73 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* ── Muscle Map ───────────────────────────────────────────────────────── */}
-      <div className="bg-card border border-border rounded-3xl p-4">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-white font-bold text-sm">Stav svalů</p>
-          <button onClick={() => { haptic([25]); setTab('library') }}
-            className="text-blue text-xs font-mono flex items-center gap-1">
-            Zobrazit cviky <ChevronRight className="w-3 h-3" />
-          </button>
-        </div>
-        <MuscleMap muscleStatus={decayed} compact />
-      </div>
-
-      {/* ── Fatigue breakdown ────────────────────────────────────────────────── */}
-      {rankedMuscles.length > 0 && (
-        <div className="bg-card border border-border rounded-3xl p-4">
-          <p className="text-white font-bold text-sm mb-3">Stav regenerace</p>
-          <div className="space-y-3">
-            {rankedMuscles.map(([id, data]) => {
-              const lbl = fatigueLabel(data.fatigue)
-              const hours = hoursUntilRecovered(data.fatigue)
-              return (
-                <div key={id} className="flex items-center gap-3">
-                  <div className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                    style={{ background: lbl.color, boxShadow: `0 0 6px ${lbl.color}` }} />
-                  <div className="flex-1">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-sm text-white font-semibold capitalize">{MUSCLE_LABELS[id] || id}</span>
-                      <span className="text-xs font-mono" style={{ color: lbl.color }}>
-                        {Math.round(data.fatigue)}%
-                      </span>
-                    </div>
-                    <div className="h-1.5 bg-surface rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all duration-500"
-                        style={{ width: `${data.fatigue}%`, background: `linear-gradient(to right, ${lbl.color}80, ${lbl.color})` }} />
-                    </div>
-                  </div>
-                  {hours > 0 && (
-                    <span className="text-[10px] font-mono text-dim w-14 text-right flex-shrink-0">
-                      za {hours}h
-                    </span>
-                  )}
-                </div>
-              )
-            })}
+      {/* ── Muscle Status Section ────────────────────────────────────────────── */}
+      <div className="bg-card border border-border rounded-[40px] p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-black text-white">Stav svalů</h2>
+            <p className="text-dim text-[10px] font-mono uppercase tracking-widest">Detailní analýza únavy</p>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => { haptic([25]); setShowActivityModal(true) }}
+              className="w-10 h-10 rounded-2xl bg-surface border border-border flex items-center justify-center text-blue">
+              <Footprints className="w-5 h-5" />
+            </button>
+            <button onClick={() => { haptic([25]); setShowFatigueModal(true) }}
+              className="w-10 h-10 rounded-2xl bg-surface border border-border flex items-center justify-center text-red">
+              <Sliders className="w-5 h-5" />
+            </button>
           </div>
         </div>
-      )}
+
+        {/* ── Muscle Map ───────────────────────────────────────────────────────── */}
+        <div className="bg-card border border-border rounded-3xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-white font-bold text-sm">Mapa svalů</p>
+            <button onClick={() => { haptic([25]); setTab('library') }}
+              className="text-blue text-xs font-mono flex items-center gap-1">
+              Zobrazit cviky <ChevronRight className="w-3 h-3" />
+            </button>
+          </div>
+          <MuscleMap muscleStatus={decayed} compact />
+        </div>
+
+        {/* ── Fatigue breakdown ────────────────────────────────────────────────── */}
+        {rankedMuscles.length > 0 && (
+          <div className="bg-card border border-border rounded-3xl p-4">
+            <p className="text-white font-bold text-sm mb-3">Stav regenerace</p>
+            <div className="space-y-3">
+              {rankedMuscles.map(([id, data]) => {
+                const lbl = fatigueLabel(data.fatigue)
+                const hours = hoursUntilRecovered(data.fatigue)
+                return (
+                  <div key={id} className="flex items-center gap-3">
+                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                      style={{ background: lbl.color, boxShadow: `0 0 6px ${lbl.color}` }} />
+                    <div className="flex-1">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-sm text-white font-semibold capitalize">{MUSCLE_LABELS[id] || id}</span>
+                        <span className="text-xs font-mono" style={{ color: lbl.color }}>
+                          {Math.round(data.fatigue)}%
+                        </span>
+                      </div>
+                      <div className="h-1.5 bg-surface rounded-full overflow-hidden">
+                        <div className="h-full rounded-full transition-all duration-500"
+                          style={{ width: `${data.fatigue}%`, background: `linear-gradient(to right, ${lbl.color}80, ${lbl.color})` }} />
+                      </div>
+                    </div>
+                    {hours > 0 && (
+                      <span className="text-[10px] font-mono text-dim w-14 text-right flex-shrink-0">
+                        za {hours}h
+                      </span>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* ── Week overview strip ──────────────────────────────────────────────── */}
       <div>
@@ -230,6 +255,99 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Manual Fatigue Modal */}
+      {showFatigueModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center animate-slide-up">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowFatigueModal(false)} />
+          <div className="relative w-full max-w-lg bg-card border-t border-border rounded-t-[40px] p-6 max-h-[90vh] overflow-y-auto">
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-border rounded-full" />
+
+            <div className="mb-6 mt-2">
+              <h3 className="text-2xl font-black text-white">Upravit únavu</h3>
+              <p className="text-dim text-xs">Nastavte aktuální úroveň únavy pro každý sval</p>
+            </div>
+
+            <div className="space-y-4 mb-8">
+              {Object.entries(MUSCLE_LABELS).map(([id, label]) => {
+                const fatigue = muscleStatus?.[id]?.fatigue || 0
+                return (
+                  <div key={id} className="space-y-1.5">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-white font-bold">{label}</span>
+                      <span className="text-mono text-dim">{Math.round(fatigue)}%</span>
+                    </div>
+                    <input
+                      type="range" min="0" max="100" step="1"
+                      value={fatigue}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value)
+                        updateMuscleStatus({ [id]: { fatigue: val, last_updated: new Date().toISOString() } })
+                      }}
+                      className="w-full accent-blue appearance-none bg-surface h-1.5 rounded-full outline-none"
+                    />
+                  </div>
+                )
+              })}
+            </div>
+
+            <button onClick={() => setShowFatigueModal(false)}
+              className="w-full py-4 rounded-2xl bg-blue text-white font-black text-sm">
+              Hotovo
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Activity Modal */}
+      {showActivityModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center animate-slide-up">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowActivityModal(false)} />
+          <div className="relative w-full max-w-lg bg-card border-t border-border rounded-t-[40px] p-6 max-h-[80vh] overflow-y-auto">
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-border rounded-full" />
+
+            <div className="mb-6 mt-2">
+              <h3 className="text-2xl font-black text-white">Zapsat aktivitu</h3>
+              <p className="text-dim text-xs">Zaznamenejte jiný sport a jeho vliv na únavu</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              {Object.entries(ACTIVITY_IMPACTS).map(([id, cfg]) => (
+                <button key={id} onClick={() => { haptic([20]); setActivityType(id) }}
+                  className={`flex flex-col items-center gap-2 p-5 rounded-3xl border transition-all ${activityType === id ? 'bg-blue/10 border-blue' : 'bg-surface border-border'
+                    }`}>
+                  <span className="text-2xl">{cfg.emoji}</span>
+                  <span className={`text-xs font-bold ${activityType === id ? 'text-white' : 'text-dim'}`}>{cfg.label}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="space-y-4 mb-8">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-white font-bold">Intenzita / Délka</span>
+                <span className="text-mono text-blue font-bold">{activityIntensity.toFixed(1)}x</span>
+              </div>
+              <div className="flex items-center gap-4">
+                <span className="text-[10px] text-dim font-mono">Lehká</span>
+                <input
+                  type="range" min="0.5" max="2.0" step="0.1"
+                  value={activityIntensity}
+                  onChange={(e) => setActivityIntensity(parseFloat(e.target.value))}
+                  className="flex-1 accent-blue appearance-none bg-surface h-1.5 rounded-full outline-none"
+                />
+                <span className="text-[10px] text-dim font-mono">Těžká</span>
+              </div>
+            </div>
+
+            <button onClick={async () => {
+              await logActivity(activityType, activityIntensity)
+              setShowActivityModal(false)
+            }}
+              className="w-full py-4 rounded-2xl bg-blue text-white font-black text-sm">
+              Zapsat a přepočítat únavu
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

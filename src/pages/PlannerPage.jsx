@@ -29,7 +29,7 @@ const DAYS = [
 ]
 
 export default function PlannerPage() {
-  const { profile, updateProfile, muscleStatus } = useApp()
+  const { profile, updateProfile, muscleStatus, exercises } = useApp()
   const [editingDay, setEditingDay] = useState(null)
   const [isUpdating, setIsUpdating] = useState(false)
   const [planSummary, setPlanSummary] = useState(null)
@@ -46,6 +46,36 @@ export default function PlannerPage() {
       const newSplit = { ...split, [editingDay]: type }
       await updateProfile({ weekly_split: newSplit })
       setPlanSummary(null) // Clear summary when plan changes
+    } catch (error) {
+      console.error("Failed to update weekly split:", error)
+    } finally {
+      setIsUpdating(false)
+      setEditingDay(null)
+    }
+  }
+
+  const handleDayUpdateWithShift = async (type, shouldShift = false) => {
+    if (!editingDay) return
+    haptic([30])
+    setIsUpdating(true)
+    try {
+      let newSplit = { ...split, [editingDay]: type }
+
+      if (shouldShift) {
+        // Shift remaining days
+        const dayIds = ['1', '2', '3', '4', '5', '6', '0']
+        const startIdx = dayIds.indexOf(editingDay)
+
+        // Save the old values to shift them
+        const dayValues = dayIds.map(id => split[id])
+
+        for (let i = startIdx + 1; i < dayIds.length; i++) {
+          newSplit[dayIds[i]] = dayValues[i - 1]
+        }
+      }
+
+      await updateProfile({ weekly_split: newSplit })
+      setPlanSummary(null)
     } catch (error) {
       console.error("Failed to update weekly split:", error)
     } finally {
@@ -143,26 +173,54 @@ export default function PlannerPage() {
           )}
         </button>
 
+        {/* Readiness Warning Banner */}
+        {!editing && config.muscles.length > 0 && score < 35 && (
+          <div className="mx-3.5 mb-2 px-3 py-2 rounded-xl bg-red/10 border border-red/20 flex items-center gap-2">
+            <Zap className="w-3.5 h-3.5 text-red" />
+            <p className="text-[10px] font-bold text-red">Vysoká únava! Zvažte lehčí váhy nebo jiný trénink.</p>
+          </div>
+        )}
+
         {/* Expanded detail */}
         {expanded && !editing && config.muscles.length > 0 && (
-          <div className="px-3.5 pb-3.5 border-t border-border pt-3 space-y-2">
-            {muscleStatuses.map(({ id, fatigue }) => {
-              const lbl = fatigueLabel(fatigue)
-              return (
-                <div key={id} className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full flex-shrink-0"
-                    style={{ background: lbl.color }} />
-                  <span className="text-xs text-subtle capitalize flex-1">{MUSCLE_LABELS[id] || id}</span>
-                  <div className="w-24 h-1.5 bg-surface rounded-full overflow-hidden">
-                    <div className="h-full rounded-full"
-                      style={{ width: `${fatigue}%`, background: lbl.color, transition: 'width 0.5s ease' }} />
+          <div className="px-3.5 pb-3.5 border-t border-border pt-3 space-y-4">
+            {/* Muscle Breakdown */}
+            <div className="space-y-2">
+              <p className="text-[9px] font-mono text-dim uppercase tracking-wider mb-2">Stav připravenosti svalů</p>
+              {muscleStatuses.map(({ id, fatigue }) => {
+                const lbl = fatigueLabel(fatigue)
+                return (
+                  <div key={id} className="flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full flex-shrink-0"
+                      style={{ background: lbl.color }} />
+                    <span className="text-xs text-subtle capitalize flex-1">{MUSCLE_LABELS[id] || id}</span>
+                    <div className="w-24 h-1.5 bg-surface rounded-full overflow-hidden">
+                      <div className="h-full rounded-full"
+                        style={{ width: `${fatigue}%`, background: lbl.color, transition: 'width 0.5s ease' }} />
+                    </div>
+                    <span className="text-[10px] font-mono w-12 text-right" style={{ color: lbl.color }}>
+                      {Math.round(fatigue)}%
+                    </span>
                   </div>
-                  <span className="text-[10px] font-mono w-12 text-right" style={{ color: lbl.color }}>
-                    {Math.round(fatigue)}%
-                  </span>
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
+
+            {/* Suggestions */}
+            <div className="space-y-2">
+              <p className="text-[9px] font-mono text-dim uppercase tracking-wider">Doporučené cviky</p>
+              <div className="flex flex-wrap gap-1.5">
+                {exercises
+                  .filter(ex => config.muscles.includes(ex.muscle_group))
+                  .slice(0, 5)
+                  .map(ex => (
+                    <div key={ex.id} className="px-2.5 py-1.5 rounded-xl bg-surface border border-border text-[10px] font-bold text-white">
+                      {ex.name}
+                    </div>
+                  ))
+                }
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -279,10 +337,20 @@ export default function PlannerPage() {
 
             <div className="grid grid-cols-2 gap-3 mb-8">
               {Object.entries(WORKOUT_TYPES).map(([id, cfg]) => (
-                <button key={id} onClick={() => handleDayUpdate(id)}
+                <button key={id} onClick={() => {
+                  if (id === 'rest') {
+                    // Rest day specific logic or shift
+                    handleDayUpdateWithShift(id, true)
+                  } else {
+                    handleDayUpdate(id)
+                  }
+                }}
                   disabled={isUpdating}
                   className={`flex flex-col items-center justify-center gap-2 p-5 rounded-3xl border transition-all ${split[editingDay] === id ? 'bg-blue/10 border-blue text-white ring-2 ring-blue/20' : 'bg-surface border-border text-dim hover:border-blue/30'
                     }`}>
+                  {id === 'rest' && split[editingDay] !== 'rest' && (
+                    <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded-lg bg-blue text-[8px] font-black text-white">SHIFT</div>
+                  )}
                   <span className="text-3xl mb-1">{cfg.emoji}</span>
                   <span className="text-xs font-bold text-center">{cfg.label}</span>
                 </button>
