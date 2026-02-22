@@ -4,16 +4,14 @@
 // All calls inject muscle_status + recent workouts as grounding context
 // ─────────────────────────────────────────────────────────────────────────────
 
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || ''
-const GEMINI_MODEL = 'gemini-2.5-flash-lite'
-const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`
+const ENDPOINT = '/api/chat'
 
 // Muscle labels for natural language
 const MUSCLE_LABELS = {
-  chest: 'Chest', back: 'Back', shoulders: 'Shoulders',
-  biceps: 'Biceps', triceps: 'Triceps', forearms: 'Forearms',
-  core: 'Core', glutes: 'Glutes', quads: 'Quadriceps',
-  hamstrings: 'Hamstrings', calves: 'Calves',
+  chest: 'Hrudník', back: 'Záda', shoulders: 'Ramena',
+  biceps: 'Biceps', triceps: 'Triceps', forearms: 'Předloktí',
+  core: 'Břicho/Střed', glutes: 'Hýždě', quads: 'Kvadricepsy',
+  hamstrings: 'Hamstringy', calves: 'Lýtka',
 }
 
 // ── Build grounding context from user data ───────────────────────────────────
@@ -30,20 +28,20 @@ function buildContext(muscleStatus, recentWorkouts = []) {
     return `  • ${date}: ${w.workout_type} — ${w.exercise_name} (${Math.round(w.total_volume || 0)} kg volume)`
   }).join('\n')
 
-  return `You are Agile Coach, an elite AI fitness coach. You are direct, motivating, and data-driven.
+  return `Jsi Agile Coach, elitní AI fitness kouč. Jsi přímý, motivující a opíráš se o data. Mluv výhradně ČESKY.
 
-CURRENT MUSCLE STATUS (post-recovery calculation):
-${fatigueLines || '  • All muscles fully recovered'}
+AKTUÁLNÍ STAV SVALŮ (po započtení regenerace):
+${fatigueLines || '  • Všechny svaly jsou plně zregenerovány'}
 
-RECENT TRAINING HISTORY:
-${workoutLines || '  • No recent workouts logged'}
+NEDÁVNÁ HISTORIE TRÉNINKŮ:
+${workoutLines || '  • Žádné nedávné tréninky'}
 
-Rules:
-- Respond in the user's language (detect from their message)
-- Be PROACTIVE: lead with insights from the data above, not generic questions  
-- Be concise but impactful — max 3 paragraphs unless asked for detail
-- When fatigue > 70%, strongly advise rest or alternative muscles
-- Format with **bold** for exercise names, emojis for readability`
+Pravidla:
+- Odpovídej vždy ČESKY
+- Buď PROAKTIVNÍ: začni s postřehy z výše uvedených dat, neptej se na obecné otázky
+- Buď stručný, ale úderný — max 3 odstavce, pokud tě uživatel nepožádá o detail
+- Pokud je únava > 70%, důrazně doporuč odpočinek nebo trénink jiných svalů
+- Formátuj **tučně** názvy cviků, používej emoji pro lepší čitelnost`
 }
 
 // Apply 20%/24h decay — mirror of the Recovery Engine
@@ -114,18 +112,22 @@ export async function chatWithCoach(message, muscleStatus, recentWorkouts) {
 /** Proactive opening message — AI leads with insights */
 export async function getProactiveGreeting(muscleStatus, recentWorkouts) {
   const ctx = buildContext(muscleStatus, recentWorkouts)
-  const prompt = `Generate a proactive coaching message (2-3 sentences) based on the athlete's current data.
-DO NOT start with "How can I help". Instead, immediately reference their data.
-Example format: "Your [muscle] is [X]% recovered — ideal timing for [exercise]. [specific recommendation]."
-Be specific, use their actual fatigue numbers.`
+  const prompt = `Generuj proaktivní koučovací zprávu (2-3 věty) v ČEŠTINĚ na základě aktuálních dat sportovce.
+NEZAČÍNEJ stylem "Jak vám mohu pomoci". Místo toho rovnou odkazuj na jejich data.
+Příklad: "Vaše [sval] jsou z [X]% zregenerovány — ideální čas na [cvik]. [specifické doporučení]."
+Buď konkrétní, používej jejich reálná čísla únavy.`
   return callGemini(prompt, ctx, { temperature: 0.9 })
 }
 
 /** Form tips for a specific exercise */
 export async function getFormTips(exerciseName, muscleStatus, recentWorkouts) {
   const ctx = buildContext(muscleStatus, recentWorkouts)
-  const prompt = `Give concise form cues for **${exerciseName}** (4-6 bullet points).
-Format: 🎯 **Cue name**: brief explanation. Include one common mistake to avoid.`
+  const prompt = `Poskytni podrobné a stručné rady pro cvik **${exerciseName}** v ČEŠTINĚ.
+Struktura odpovědi musí být přesně tato (použij emoji):
+
+💪 **Technika**: Jak cvik správně provádět (3-4 body).
+⚠️ **Pozor na**: Na co si dát pozor a nejčastější chyby (2 body).
+🫁 **Dýchání**: Kdy se nadechnout a kdy vydechnout.`
   return callGemini(prompt, ctx, { temperature: 0.4, maxTokens: 500 })
 }
 
@@ -135,9 +137,9 @@ export async function optimizePlan(weeklyPlan, muscleStatus, recentWorkouts) {
   const planStr = Object.entries(weeklyPlan)
     .map(([day, type]) => `Day ${day}: ${type}`)
     .join(', ')
-  const prompt = `Analyze this weekly training split: ${planStr}
-Based on current fatigue levels, suggest specific swaps or intensity adjustments.
-Format your response with: ⚠️ Issues found, ✅ Recommended changes, 📅 Optimized schedule.`
+  const prompt = `Analyzuj tento týdenní plán: ${planStr}
+Na základě aktuální únavy navrhni konkrétní výměny nebo úpravy intenzity. Odpovídej v ČEŠTINĚ.
+Formátuj odpověď takto: ⚠️ Nalezené problémy, ✅ Doporučené změny, 📅 Optimalizovaný rozvrh.`
   return callGemini(prompt, ctx, { temperature: 0.6, maxTokens: 600 })
 }
 

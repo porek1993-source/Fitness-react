@@ -1,191 +1,188 @@
 // src/pages/LibraryPage.jsx
 import { useState } from 'react'
-import { Search, Dumbbell, ChevronRight, Star, BarChart2, X, HelpCircle, Loader } from 'lucide-react'
+import { Search, Dumbbell, ChevronRight, Star, BarChart2, X, HelpCircle, Loader, LayoutGrid, Wind, Zap, Box, Play } from 'lucide-react'
 import { useApp, haptic } from '../lib/useAppStore'
 import { getFormTips } from '../lib/gemini'
 import MuscleMap from '../components/MuscleMap'
 
-const MUSCLE_OPTIONS = [
-  'all','chest','back','shoulders','biceps','triceps','forearms','core','glutes','quads','hamstrings','calves'
+const EQUIPMENT = [
+  { id: 'all', label: 'Vše', icon: <LayoutGrid className="w-4 h-4" /> },
+  { id: 'bodyweight', label: 'Vlastní váha', icon: <Wind className="w-4 h-4" /> },
+  { id: 'dumbbell', label: 'Jednoručky', icon: <Dumbbell className="w-4 h-4" /> },
+  { id: 'barbell', label: 'Osa', icon: <Zap className="w-4 h-4" /> },
+  { id: 'machine', label: 'Stroj', icon: <Box className="w-4 h-4" /> },
+  { id: 'cables', label: 'Kladky', icon: <Play className="w-4 h-4" /> },
 ]
-const DIFF_COLORS = {
-  'Beginner':     '#30d158',
-  'Intermediate': '#ff9f0a',
-  'Advanced':     '#ff375f',
-}
 
 export default function LibraryPage() {
-  const { exercises, muscleStatus, selectedMuscle, setMuscle } = useApp()
-  const [query,     setQuery]     = useState('')
+  const { exercises, selectedMuscle, setMuscle, muscleStatus, weeklyWorkouts } = useApp()
+  const [search, setSearch] = useState('')
   const [equipment, setEquipment] = useState('all')
-  const [detail,    setDetail]    = useState(null)
-  const [formTip,   setFormTip]   = useState(null)
-  const [tipLoad,   setTipLoad]   = useState(false)
+  const [details, setDetails] = useState(null)
+  const [tips, setTips] = useState(null)
+  const [tipsLoading, setTipsLoading] = useState(false)
 
-  // Active filter = selectedMuscle from body map OR local state
-  const activeFilter = selectedMuscle || 'all'
-
-  // Filter exercises
+  // Filter logic
   const filtered = exercises.filter(ex => {
-    const matchMuscle = activeFilter === 'all' || ex.muscle_group === activeFilter ||
-                        (ex.secondary_muscles || []).includes(activeFilter)
-    const matchQuery  = !query.trim() || ex.name.toLowerCase().includes(query.toLowerCase())
-    const matchEquip  = equipment === 'all' || ex.equipment === equipment
-    return matchMuscle && matchQuery && matchEquip
+    const s = search.toLowerCase()
+    const matchSearch = ex.name.toLowerCase().includes(s) || ex.muscle_group.toLowerCase().includes(s)
+    const matchEquip = equipment === 'all' || ex.equipment === equipment
+    const matchMuscle = !selectedMuscle || ex.muscle_group === selectedMuscle || ex.secondary_muscles?.includes(selectedMuscle)
+    return matchSearch && matchEquip && matchMuscle
   })
 
-  const equipmentOptions = ['all', ...new Set(exercises.map(e => e.equipment))]
-
-  const openDetail = (ex) => {
-    haptic([40])
-    setDetail(ex)
-    setFormTip(null)
-  }
-
-  const loadFormTips = async () => {
-    if (!detail) return
+  const loadTips = async (ex) => {
     haptic([30])
-    setTipLoad(true)
-    const tip = await getFormTips(detail.name, muscleStatus, [])
-    setFormTip(tip)
-    setTipLoad(false)
+    setTips(null)
+    setTipsLoading(true)
+    const t = await getFormTips(ex.name, muscleStatus, weeklyWorkouts)
+    setTips(t)
+    setTipsLoading(false)
   }
 
   return (
-    <div className="px-4 pb-6 animate-fade-in">
-      <div className="pt-2 mb-4">
-        <h1 className="text-2xl font-black text-white">Exercise Library</h1>
-        <p className="text-dim text-xs font-mono">{exercises.length} exercises · tap a muscle to filter</p>
-      </div>
-
-      {/* Body map filter (compact) */}
-      <div className="bg-card border border-border rounded-3xl p-4 mb-4">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-white text-sm font-bold">Filter by Muscle</p>
-          {selectedMuscle && (
-            <button onClick={() => setMuscle(null)} className="text-xs text-dim flex items-center gap-1">
-              <X className="w-3 h-3" /> Clear
-            </button>
-          )}
+    <div className="flex flex-col h-full animate-fade-in">
+      {/* Header */}
+      <div className="px-4 pt-2 pb-4 space-y-4 flex-shrink-0">
+        <div className="flex items-end justify-between">
+          <div>
+            <h1 className="text-2xl font-black text-white">Knihovna cviků</h1>
+            <p className="text-dim text-xs font-mono">Vyberte sval nebo hledejte</p>
+          </div>
+          <div className="bg-card border border-border rounded-full px-3 py-1 flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-blue animate-pulse" />
+            <span className="text-[10px] font-black text-white">{filtered.length} CVIKŮ</span>
+          </div>
         </div>
-        <MuscleMap muscleStatus={muscleStatus} compact />
-      </div>
 
-      {/* Search + equipment filter */}
-      <div className="space-y-3 mb-4">
+        {/* Search */}
         <div className="relative">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-dim" />
           <input
-            value={query} onChange={e => setQuery(e.target.value)}
-            placeholder="Search exercises..."
-            className="w-full bg-card border border-border rounded-2xl pl-10 pr-4 py-3 text-white text-sm outline-none placeholder:text-dim"
+            type="text" value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Hledat cvik nebo sval..."
+            className="w-full bg-card border border-border rounded-2xl pl-11 pr-4 py-3.5 text-white text-sm outline-none focus:border-blue/50 transition-colors"
           />
+          {search && (
+            <button onClick={() => setSearch('')} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-dim">
+              <span className="text-xs">Zrušit</span>
+            </button>
+          )}
         </div>
 
-        <div className="flex gap-2 overflow-x-auto scrollbar-none pb-0.5">
-          {equipmentOptions.map(eq => (
-            <button key={eq} onClick={() => { haptic([25]); setEquipment(eq) }}
-              className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all capitalize"
-              style={{
-                borderColor: equipment === eq ? '#0a84ff' : '#1c1c28',
-                background:  equipment === eq ? 'rgba(10,132,255,0.12)' : 'transparent',
-                color:       equipment === eq ? '#0a84ff' : '#555570',
-              }}>
-              {eq}
+        {/* Equipment chips */}
+        <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
+          {EQUIPMENT.map(e => (
+            <button key={e.id} onClick={() => { haptic([20]); setEquipment(e.id) }}
+              className={`flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-full text-xs font-bold transition-all ${equipment === e.id ? 'bg-blue text-white shadow-lg shadow-blue/20' : 'bg-card text-dim border border-border'
+                }`}>
+              {e.icon} {e.label}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Results count */}
-      <p className="text-dim text-xs font-mono mb-3">
-        {filtered.length} result{filtered.length !== 1 ? 's' : ''}
-        {activeFilter !== 'all' && <span className="text-blue"> · {activeFilter}</span>}
-      </p>
+      {/* Body Map Filter Area */}
+      <div className="px-4 mb-4 flex-shrink-0">
+        <div className="bg-card/50 border border-border rounded-3xl p-4 flex gap-4 items-center">
+          <div className="w-24 h-32 flex-shrink-0">
+            <MuscleMap muscleStatus={muscleStatus} compact />
+          </div>
+          <div className="flex-1">
+            <p className="text-[10px] font-mono text-dim uppercase tracking-wider mb-1">Filtr svalů</p>
+            <p className="text-white font-black text-lg capitalize">{selectedMuscle || 'Všechny svaly'}</p>
+            {selectedMuscle && (
+              <button onClick={() => setMuscle(null)} className="text-blue text-xs font-bold mt-1">Zrušit výběr</button>
+            )}
+          </div>
+        </div>
+      </div>
 
-      {/* Exercise grid */}
-      <div className="space-y-3">
+      {/* List */}
+      <div className="flex-1 overflow-y-auto px-4 pb-12 space-y-3">
         {filtered.map(ex => (
-          <ExerciseCard key={ex.id} exercise={ex} onClick={() => openDetail(ex)} />
+          <button key={ex.id} onClick={() => { haptic([30]); setDetails(ex); loadTips(ex) }}
+            className="w-full flex items-center gap-4 bg-card border border-border rounded-3xl p-3 border-l-4 transition-all active:scale-[0.98]"
+            style={{ borderLeftColor: ex.difficulty === 'advanced' ? '#ff375f' : ex.difficulty === 'intermediate' ? '#ff9f0a' : '#30d158' }}>
+            <div className="w-16 h-16 rounded-2xl bg-surface overflow-hidden flex-shrink-0">
+              {ex.image_url ? (
+                <img src={ex.image_url} alt={ex.name} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-dim uppercase font-black text-[10px]">{ex.id.slice(0, 2)}</div>
+              )}
+            </div>
+            <div className="flex-1 text-left min-w-0">
+              <p className="text-white font-bold text-sm truncate">{ex.name}</p>
+              <div className="flex gap-2 mt-1">
+                <span className="text-[9px] font-mono text-muted uppercase">{ex.equipment}</span>
+                <span className="text-[9px] font-mono text-muted uppercase">·</span>
+                <span className="text-[9px] font-mono text-muted uppercase">{ex.muscle_group}</span>
+              </div>
+            </div>
+            <div className="w-8 h-8 rounded-xl bg-surface flex items-center justify-center text-dim flex-shrink-0">
+              <ChevronRight className="w-4 h-4" />
+            </div>
+          </button>
         ))}
       </div>
 
-      {filtered.length === 0 && (
-        <div className="text-center py-12">
-          <Dumbbell className="w-10 h-10 text-dim mx-auto mb-3" />
-          <p className="text-subtle text-sm">No exercises found</p>
-          <button onClick={() => { setQuery(''); setMuscle(null); setEquipment('all') }}
-            className="text-blue text-xs mt-2">Clear filters</button>
-        </div>
-      )}
+      {/* Detail Modal */}
+      {details && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center animate-slide-up">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setDetails(null)} />
+          <div className="relative w-full max-w-lg bg-card border-t border-border rounded-t-[40px] px-6 pt-8 pb-12 max-h-[90vh] overflow-y-auto">
+            {/* Drag handle */}
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-border rounded-full" />
 
-      {/* Exercise detail sheet */}
-      {detail && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center"
-          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
-          onClick={(e) => e.target === e.currentTarget && setDetail(null)}>
-          <div className="w-full max-w-lg bg-card border border-border rounded-t-3xl p-5 pb-10 animate-slide-up max-h-[85vh] overflow-y-auto">
+            <div className="flex items-start justify-between mb-6">
+              <div>
+                <p className="text-dim text-[10px] font-mono uppercase tracking-widest mb-1">{details.muscle_group}</p>
+                <h2 className="text-2xl font-black text-white">{details.name}</h2>
+              </div>
+              <button onClick={() => setDetails(null)} className="p-2 text-dim"><X /></button>
+            </div>
 
-            {/* Handle */}
-            <div className="w-10 h-1 bg-border rounded-full mx-auto mb-4" />
+            {/* AI Tips Section */}
+            <div className="bg-gradient-to-br from-red/10 to-orange/5 border border-red/20 rounded-3xl p-5 mb-8">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-red to-orange flex items-center justify-center">
+                  <Zap className="w-4 h-4 text-white" />
+                </div>
+                <h3 className="text-sm font-black text-white">Rady od AI Trenéra</h3>
+              </div>
 
-            {/* Exercise header */}
-            <div className="flex gap-4 mb-4">
-              <ExerciseImage exercise={detail} size={72} />
-              <div className="flex-1">
-                <h2 className="text-white text-xl font-black">{detail.name}</h2>
-                <p className="text-dim text-xs font-mono capitalize mt-0.5">
-                  {detail.muscle_group} · {detail.equipment}
-                </p>
-                <span className="inline-block mt-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full"
-                  style={{
-                    background: `${DIFF_COLORS[detail.difficulty] || '#3a3a4a'}18`,
-                    color: DIFF_COLORS[detail.difficulty] || '#888',
-                  }}>
-                  {detail.difficulty}
-                </span>
+              {tipsLoading ? (
+                <div className="space-y-3">
+                  <div className="h-3 bg-white/5 rounded-full w-full animate-pulse" />
+                  <div className="h-3 bg-white/5 rounded-full w-5/6 animate-pulse" />
+                  <div className="h-3 bg-white/5 rounded-full w-2/3 animate-pulse" />
+                </div>
+              ) : tips ? (
+                <div className="text-subtle text-xs leading-relaxed space-y-4"
+                  dangerouslySetInnerHTML={{
+                    __html: tips
+                      .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>')
+                      .replace(/\n/g, '<br/>')
+                  }} />
+              ) : (
+                <button onClick={() => loadTips(details)} className="text-red text-xs font-bold">Zkusit znovu načíst</button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-8">
+              <div className="bg-surface p-4 rounded-3xl">
+                <p className="text-dim text-[10px] uppercase mb-1">Vybavení</p>
+                <p className="text-white font-bold capitalize">{details.equipment}</p>
+              </div>
+              <div className="bg-surface p-4 rounded-3xl">
+                <p className="text-dim text-[10px] uppercase mb-1">Obtížnost</p>
+                <p className="text-white font-bold capitalize">{details.difficulty}</p>
               </div>
             </div>
 
-            {/* Muscles */}
-            <div className="mb-4">
-              <p className="text-dim text-[10px] font-mono uppercase tracking-wider mb-2">Muscles</p>
-              <div className="flex gap-2 flex-wrap">
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue/15 text-blue capitalize">
-                  {detail.muscle_group} (primary)
-                </span>
-                {(detail.secondary_muscles || []).map(m => (
-                  <span key={m} className="px-3 py-1 rounded-full text-xs font-mono bg-surface text-subtle capitalize">{m}</span>
-                ))}
-              </div>
-            </div>
-
-            {/* Instructions */}
-            {detail.instructions && (
-              <div className="mb-4">
-                <p className="text-dim text-[10px] font-mono uppercase tracking-wider mb-2">Instructions</p>
-                <p className="text-subtle text-sm leading-relaxed">{detail.instructions}</p>
-              </div>
-            )}
-
-            {/* Form tips from AI */}
-            <button onClick={loadFormTips}
-              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-border text-white font-semibold text-sm mb-3">
-              {tipLoad ? <Loader className="w-4 h-4 animate-spin" /> : <HelpCircle className="w-4 h-4 text-blue" />}
-              {tipLoad ? 'Loading AI form cues...' : 'Get AI Form Tips'}
-            </button>
-
-            {formTip && (
-              <div className="bg-surface border border-blue/20 rounded-2xl p-4 mb-3">
-                <p className="text-[10px] font-mono text-blue uppercase tracking-wider mb-2">AI Form Cues</p>
-                <div className="text-white text-xs leading-relaxed space-y-1"
-                  dangerouslySetInnerHTML={{ __html: formTip.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>') }} />
-              </div>
-            )}
-
-            <button onClick={() => setDetail(null)}
-              className="w-full py-3.5 rounded-2xl bg-surface text-dim font-semibold text-sm">
-              Close
+            <button onClick={() => setDetails(null)}
+              className="w-full py-4 rounded-2xl bg-white text-black font-black text-sm active:scale-[0.98] transition-all">
+              Rozumím
             </button>
           </div>
         </div>
@@ -208,7 +205,7 @@ function ExerciseCard({ exercise: ex, onClick }) {
         </p>
         {ex.secondary_muscles?.length > 0 && (
           <p className="text-[9px] font-mono mt-0.5" style={{ color: '#3a3a4a' }}>
-            + {ex.secondary_muscles.slice(0,2).join(', ')}
+            + {ex.secondary_muscles.slice(0, 2).join(', ')}
           </p>
         )}
       </div>

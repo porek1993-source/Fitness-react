@@ -5,7 +5,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 const DECAY_RATE = 0.20      // 20% per 24h
-const DAY_MS     = 86_400_000 // 24h in ms
+const DAY_MS = 86_400_000 // 24h in ms
 
 /**
  * Predict fatigue level at a future offset (in hours from now).
@@ -32,8 +32,8 @@ export function applyDecayToStatus(muscleStatus) {
         return [id, { ...data, fatigue: 0 }]
       }
       const elapsed = now - lastUpdated
-      const periods  = elapsed / DAY_MS
-      const fatigue  = Math.max(0, data.fatigue * Math.pow(1 - DECAY_RATE, periods))
+      const periods = elapsed / DAY_MS
+      const fatigue = Math.max(0, data.fatigue * Math.pow(1 - DECAY_RATE, periods))
       return [id, { ...data, fatigue: Math.round(fatigue * 10) / 10 }]
     })
   )
@@ -79,9 +79,9 @@ export function fatigueToColor(fatigue, opacity = 1) {
   if (t < 0.4) {
     // Grey → Yellow
     const s = t / 0.4
-    r = Math.round(58  + s * (255 - 58))
-    g = Math.round(58  + s * (200 - 58))
-    b = Math.round(74  - s * 74)
+    r = Math.round(58 + s * (255 - 58))
+    g = Math.round(58 + s * (200 - 58))
+    b = Math.round(74 - s * 74)
   } else if (t < 0.7) {
     // Yellow → Orange
     const s = (t - 0.4) / 0.3
@@ -108,11 +108,11 @@ export function fatigueToGlow(fatigue) {
 
 export function fatigueLabel(fatigue) {
   const f = Math.round(fatigue)
-  if (f === 0)   return { text: 'Rested',   color: '#30d158', emoji: '✓' }
-  if (f < 30)    return { text: 'Low',      color: '#ffd60a', emoji: '▲' }
-  if (f < 60)    return { text: 'Moderate', color: '#ff9f0a', emoji: '▲▲' }
-  if (f < 85)    return { text: 'High',     color: '#ff6b35', emoji: '▲▲▲' }
-  return               { text: 'Critical', color: '#ff375f', emoji: '●' }
+  if (f === 0) return { text: 'Odpočatý', color: '#30d158', emoji: '✓' }
+  if (f < 30) return { text: 'Nízká', color: '#ffd60a', emoji: '▲' }
+  if (f < 60) return { text: 'Střední', color: '#ff9f0a', emoji: '▲▲' }
+  if (f < 85) return { text: 'Vysoká', color: '#ff6b35', emoji: '▲▲▲' }
+  return { text: 'Kritická', color: '#ff375f', emoji: '●' }
 }
 
 /**

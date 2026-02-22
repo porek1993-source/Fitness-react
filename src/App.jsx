@@ -1,21 +1,21 @@
 // src/App.jsx
 import { AppProvider, useApp } from './lib/useAppStore'
-import AuthPage        from './pages/AuthPage'
-import DashboardPage   from './pages/DashboardPage'
+import AuthPage from './pages/AuthPage'
+import DashboardPage from './pages/DashboardPage'
 import WorkoutLoggerPage from './pages/WorkoutLoggerPage'
-import LibraryPage     from './pages/LibraryPage'
-import PlannerPage     from './pages/PlannerPage'
-import CoachPage       from './pages/CoachPage'
+import LibraryPage from './pages/LibraryPage'
+import PlannerPage from './pages/PlannerPage'
+import CoachPage from './pages/CoachPage'
 import { Activity, Dumbbell, BookOpen, Calendar, MessageCircle, WifiOff } from 'lucide-react'
 import { haptic } from './lib/useAppStore'
 
 // Tab definitions
 const TABS = [
-  { id: 'dashboard', label: 'Dashboard', Icon: Activity },
-  { id: 'log',       label: 'Log',       Icon: Dumbbell },
-  { id: 'library',   label: 'Library',   Icon: BookOpen },
-  { id: 'planner',   label: 'Planner',   Icon: Calendar },
-  { id: 'coach',     label: 'Coach',     Icon: MessageCircle },
+  { id: 'dashboard', label: 'Přehled', Icon: Activity },
+  { id: 'log', label: 'Trénink', Icon: Dumbbell },
+  { id: 'library', label: 'Knihovna', Icon: BookOpen },
+  { id: 'planner', label: 'Plánovač', Icon: Calendar },
+  { id: 'coach', label: 'Trenér', Icon: MessageCircle },
 ]
 
 function Shell() {
@@ -26,10 +26,10 @@ function Shell() {
 
   const accentColor = {
     dashboard: '#ff375f',
-    log:       '#ff9f0a',
-    library:   '#0a84ff',
-    planner:   '#30d158',
-    coach:     '#bf5af2',
+    log: '#ff9f0a',
+    library: '#0a84ff',
+    planner: '#30d158',
+    coach: '#bf5af2',
   }[activeTab] || '#ff375f'
 
   return (
@@ -45,7 +45,7 @@ function Shell() {
         <div className="flex items-center justify-center gap-2 bg-yellow/10 border-b border-yellow/20 px-4 py-2 flex-shrink-0">
           <WifiOff className="w-3.5 h-3.5 text-yellow" />
           <p className="text-yellow text-xs font-mono">
-            Offline mode — {pendingSync} workout{pendingSync !== 1 ? 's' : ''} queued
+            Režim offline — {pendingSync} trénink{pendingSync !== 1 ? 'y' : ''} ve frontě
           </p>
         </div>
       )}
@@ -54,20 +54,19 @@ function Shell() {
       <div className="h-[env(safe-area-inset-top,44px)] flex-shrink-0" />
 
       {/* Page content */}
-      <main className={`flex-1 overflow-y-auto overflow-x-hidden scrollbar-none ${
-        activeTab === 'coach' ? 'flex flex-col' : ''
-      }`} style={{ WebkitOverflowScrolling: 'touch' }}>
+      <main className={`flex-1 overflow-y-auto overflow-x-hidden scrollbar-none ${activeTab === 'coach' ? 'flex flex-col' : ''
+        }`} style={{ WebkitOverflowScrolling: 'touch' }}>
         {activeTab === 'dashboard' && <DashboardPage />}
-        {activeTab === 'log'       && <WorkoutLoggerPage />}
-        {activeTab === 'library'   && <LibraryPage />}
-        {activeTab === 'planner'   && <PlannerPage />}
-        {activeTab === 'coach'     && <CoachPage />}
+        {activeTab === 'log' && <WorkoutLoggerPage />}
+        {activeTab === 'library' && <LibraryPage />}
+        {activeTab === 'planner' && <PlannerPage />}
+        {activeTab === 'coach' && <CoachPage />}
       </main>
 
       {/* Bottom tab bar */}
       <div className="flex-shrink-0 border-t border-border/50"
         style={{
-          background:     'rgba(0,0,0,0.85)',
+          background: 'rgba(0,0,0,0.85)',
           backdropFilter: 'blur(30px)',
           WebkitBackdropFilter: 'blur(30px)',
           paddingBottom: 'env(safe-area-inset-bottom, 16px)',
@@ -115,7 +114,7 @@ function LoadingScreen() {
         <div className="absolute inset-0 rounded-3xl border-2 border-red/30 animate-spin-slow" />
       </div>
       <p className="text-dim text-xs font-mono tracking-widest uppercase animate-pulse">
-        Loading Agile Coach
+        Načítám Agile Coach
       </p>
     </div>
   )
