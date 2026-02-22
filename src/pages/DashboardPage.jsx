@@ -392,8 +392,8 @@ export default function DashboardPage() {
                 <div key={log.id} className="border-b border-white/5 pb-1 last:border-0">
                   <span className="text-dim mr-2">[{log.timestamp}]</span>
                   <span className={`font-bold mr-2 ${log.level === 'error' ? 'text-red' :
-                      log.level === 'warn' ? 'text-yellow' :
-                        'text-blue'
+                    log.level === 'warn' ? 'text-yellow' :
+                      'text-blue'
                     }`}>{log.level.toUpperCase()}:</span>
                   <span className="text-subtle break-words">{log.message}</span>
                 </div>

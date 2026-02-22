@@ -308,20 +308,27 @@ export default function PlannerPage() {
                     </button>
                   </div>
                   <div className="space-y-4">
-                    {exercises
-                      .filter(ex => configForType(split[selectedDay]).muscles.includes(ex.muscle_group))
-                      .slice(0, 6)
-                      .map(ex => (
-                        <button key={ex.id} onClick={() => { haptic([15]); setSelectedExercise(ex) }}
-                          className="w-full flex items-center gap-4 bg-surface/50 border border-border p-3 rounded-[24px] hover:border-blue/30 transition-all group text-left">
-                          <ExerciseImage exercise={ex} size={48} />
-                          <div className="flex-1">
-                            <p className="text-sm font-bold text-white group-hover:text-blue transition-colors line-clamp-1">{ex.name}</p>
-                            <p className="text-[10px] text-dim capitalize">{MUSCLE_LABELS[ex.muscle_group] || ex.muscle_group} · 3-4 série</p>
-                          </div>
-                          <Info className="w-4 h-4 text-dim/30 group-hover:text-dim transition-colors" />
-                        </button>
-                      ))}
+                    {exercises && exercises.length > 0 ? (
+                      exercises
+                        .filter(ex => configForType(split[selectedDay]).muscles.includes(ex.muscle_group))
+                        .slice(0, 6)
+                        .map(ex => (
+                          <button key={ex.id} onClick={() => { haptic([15]); setSelectedExercise(ex) }}
+                            className="w-full flex items-center gap-4 bg-surface/50 border border-border p-3 rounded-[24px] hover:border-blue/30 transition-all group text-left">
+                            <ExerciseImage exercise={ex} size={48} />
+                            <div className="flex-1">
+                              <p className="text-sm font-bold text-white group-hover:text-blue transition-colors line-clamp-1">{ex.name}</p>
+                              <p className="text-[10px] text-dim capitalize">{MUSCLE_LABELS[ex.muscle_group] || ex.muscle_group} · 3-4 série</p>
+                            </div>
+                            <Info className="w-4 h-4 text-dim/30 group-hover:text-dim transition-colors" />
+                          </button>
+                        ))
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-10 text-dim">
+                        <Loader className="w-6 h-6 animate-spin mb-2" />
+                        <p className="text-xs font-mono uppercase tracking-widest">Načítám knihovnu...</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

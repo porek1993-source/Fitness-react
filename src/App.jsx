@@ -8,6 +8,8 @@ import PlannerPage from './pages/PlannerPage'
 import CoachPage from './pages/CoachPage'
 import { Activity, Dumbbell, BookOpen, Calendar, MessageCircle, WifiOff } from 'lucide-react'
 import { haptic } from './lib/useAppStore'
+import ErrorBoundary from './components/ErrorBoundary'
+import DebugOverlay from './components/DebugOverlay'
 
 // Tab definitions
 const TABS = [
@@ -19,7 +21,12 @@ const TABS = [
 ]
 
 function Shell() {
+  console.log("[Debug] Shell component mounting...")
   const { session, loading, activeTab, setTab, onlineStatus, pendingSync } = useApp()
+
+  useEffect(() => {
+    console.log("[Debug] Shell mounted, current tab:", activeTab)
+  }, [activeTab])
 
   if (loading) return <LoadingScreen />
   if (!session) return <AuthPage />
@@ -123,7 +130,10 @@ function LoadingScreen() {
 export default function App() {
   return (
     <AppProvider>
-      <Shell />
+      <ErrorBoundary>
+        <DebugOverlay />
+        <Shell />
+      </ErrorBoundary>
     </AppProvider>
   )
 }
