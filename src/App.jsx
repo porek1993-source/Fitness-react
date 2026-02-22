@@ -21,12 +21,7 @@ const TABS = [
 ]
 
 function Shell() {
-  console.log("[Debug] Shell component mounting...")
   const { session, loading, activeTab, setTab, onlineStatus, pendingSync } = useApp()
-
-  useEffect(() => {
-    console.log("[Debug] Shell mounted, current tab:", activeTab)
-  }, [activeTab])
 
   if (loading) return <LoadingScreen />
   if (!session) return <AuthPage />

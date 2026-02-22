@@ -1,5 +1,5 @@
 // src/pages/PlannerPage.jsx
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { ChevronRight, Zap, RefreshCw, Check, Settings, Bed, Play, Info, X, Dumbbell, Loader } from 'lucide-react'
 import { useApp, haptic } from '../lib/useAppStore'
 import { optimizePlan, MUSCLE_LABELS } from '../lib/gemini'
