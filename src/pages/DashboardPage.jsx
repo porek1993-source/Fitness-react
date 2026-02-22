@@ -1,10 +1,11 @@
 // src/pages/DashboardPage.jsx
 import { useEffect, useState } from 'react'
-import { Zap, Activity, TrendingUp, Clock, ChevronRight, RefreshCw, Sliders, Footprints } from 'lucide-react'
+import { Zap, Activity, TrendingUp, Clock, ChevronRight, RefreshCw, Sliders, Footprints, Terminal, X, Trash2 } from 'lucide-react'
 import { useApp, haptic } from '../lib/useAppStore'
 import { getProactiveGreeting } from '../lib/gemini'
 import { MUSCLE_LABELS } from '../lib/gemini'
 import { fatigueLabel, hoursUntilRecovered, readinessScore, ACTIVITY_IMPACTS } from '../lib/recovery'
+import { logger } from '../lib/logger'
 import MuscleMap from '../components/MuscleMap'
 
 const WORKOUT_CONFIGS = {
@@ -25,8 +26,15 @@ export default function DashboardPage() {
   const [greetLoad, setGreetLoad] = useState(true)
   const [showFatigueModal, setShowFatigueModal] = useState(false)
   const [showActivityModal, setShowActivityModal] = useState(false)
+  const [showDebugModal, setShowDebugModal] = useState(false)
+  const [logs, setLogs] = useState([])
   const [activityType, setActivityType] = useState('running')
   const [activityIntensity, setActivityIntensity] = useState(1.0)
+
+  // Subscribe to logs
+  useEffect(() => {
+    return logger.subscribe(setLogs)
+  }, [])
 
   const decayed = getDecayedMuscleStatus()
   const todayDow = new Date().getDay()
@@ -71,6 +79,12 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Debug Button */}
+          <button onClick={() => { haptic([20]); setShowDebugModal(true) }}
+            className="w-8 h-8 rounded-xl bg-surface border border-border flex items-center justify-center text-dim hover:text-white">
+            <Terminal className="w-4 h-4" />
+          </button>
+
           {/* Sync badge */}
           {pendingSync > 0 && (
             <div className="flex items-center gap-1.5 bg-yellow/10 border border-yellow/20 rounded-full px-2.5 py-1">
@@ -345,6 +359,53 @@ export default function DashboardPage() {
               className="w-full py-4 rounded-2xl bg-blue text-white font-black text-sm">
               Zapsat a přepočítat únavu
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Debug Logs Modal */}
+      {showDebugModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fade-in">
+          <div className="absolute inset-0 bg-black/95 backdrop-blur-md" />
+          <div className="relative w-full max-w-lg h-[80vh] bg-card border border-border rounded-[40px] flex flex-col overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between p-6 border-b border-border">
+              <div>
+                <h3 className="text-xl font-black text-white">Systémové logy</h3>
+                <p className="text-dim text-[10px] font-mono uppercase tracking-widest">Debug Mode Active</p>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => { haptic([20]); logger.clear() }}
+                  className="w-10 h-10 rounded-2xl bg-surface border border-border flex items-center justify-center text-red">
+                  <Trash2 className="w-5 h-5" />
+                </button>
+                <button onClick={() => setShowDebugModal(false)}
+                  className="w-10 h-10 rounded-2xl bg-surface border border-border flex items-center justify-center text-dim">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 font-mono text-[10px] space-y-2 selection:bg-blue/30">
+              {logs.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-dim italic">Žádné logy k zobrazení</div>
+              ) : logs.map(log => (
+                <div key={log.id} className="border-b border-white/5 pb-1 last:border-0">
+                  <span className="text-dim mr-2">[{log.timestamp}]</span>
+                  <span className={`font-bold mr-2 ${log.level === 'error' ? 'text-red' :
+                      log.level === 'warn' ? 'text-yellow' :
+                        'text-blue'
+                    }`}>{log.level.toUpperCase()}:</span>
+                  <span className="text-subtle break-words">{log.message}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="p-6 bg-surface/50 border-t border-border">
+              <button onClick={() => setShowDebugModal(false)}
+                className="w-full py-4 rounded-2xl bg-blue text-white font-black text-sm shadow-lg shadow-blue/20">
+                Pochopeno
+              </button>
+            </div>
           </div>
         </div>
       )}

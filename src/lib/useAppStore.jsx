@@ -6,6 +6,24 @@
 import { createContext, useContext, useEffect, useReducer, useCallback } from 'react'
 import { supabase, flushOfflineQueue, getQueueLength } from './supabase'
 import { applyDecayToStatus, mergeFatigue, calculateFatigueIncrease } from './recovery'
+import { logger } from './logger'
+
+// Initialize logger
+logger.init()
+
+const DEFAULT_MUSCLE_STATUS = {
+  chest: { fatigue: 0, last_updated: null },
+  back: { fatigue: 0, last_updated: null },
+  shoulders: { fatigue: 0, last_updated: null },
+  biceps: { fatigue: 0, last_updated: null },
+  triceps: { fatigue: 0, last_updated: null },
+  forearms: { fatigue: 0, last_updated: null },
+  core: { fatigue: 0, last_updated: null },
+  glutes: { fatigue: 0, last_updated: null },
+  quads: { fatigue: 0, last_updated: null },
+  hamstrings: { fatigue: 0, last_updated: null },
+  calves: { fatigue: 0, last_updated: null }
+}
 
 const AppContext = createContext(null)
 
@@ -58,9 +76,25 @@ export function AppProvider({ children }) {
       async (event, session) => {
         dispatch({ type: 'SET_SESSION', payload: session })
         if (session) {
-          await loadProfile(session.user.id)
-          await loadRecentWorkouts(session.user.id)
-          await loadExercises()
+          console.log("[Auth] Session detected, initializing data...")
+          // Promise.race to ensure we don't hang forever on iPhone
+          const timeout = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("INITIALIZATION_TIMEOUT")), 6000)
+          )
+
+          try {
+            await Promise.race([
+              Promise.all([
+                loadProfile(session.user.id),
+                loadRecentWorkouts(session.user.id),
+                loadExercises()
+              ]),
+              timeout
+            ])
+            console.log("[Auth] Data loaded successfully")
+          } catch (err) {
+            console.error("[Auth] Initial load failed or timed out:", err.message)
+          }
         }
         dispatch({ type: 'SET_LOADING', payload: false })
       }
@@ -122,6 +156,10 @@ export function AppProvider({ children }) {
     if (data) {
       dispatch({ type: 'SET_PROFILE', payload: data })
       await checkRecovery(data)
+    } else {
+      // If no profile found, we'll initialize with defaults
+      console.warn("[Store] No profile found, using defaults")
+      dispatch({ type: 'UPDATE_MUSCLES', payload: DEFAULT_MUSCLE_STATUS })
     }
   }, [checkRecovery])
 

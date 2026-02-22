@@ -302,9 +302,14 @@ function ExerciseImage({ exercise: ex, size = 52 }) {
       {!showPlaceholder ? (
         <img
           src={imageUrl} alt={ex.name}
+          crossOrigin="anonymous"
           className={`w-full h-full object-cover transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
           onLoad={() => { setLoaded(true); setLoading(false) }}
-          onError={() => { setImgError(true); setLoading(false) }}
+          onError={(e) => {
+            console.error(`[Image] Failed to load GIF for ${ex.name}:`, imageUrl)
+            setImgError(true);
+            setLoading(false)
+          }}
         />
       ) : (
         <div className="flex flex-col items-center justify-center w-full h-full bg-surface">

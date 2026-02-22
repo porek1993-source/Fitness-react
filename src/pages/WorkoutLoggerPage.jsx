@@ -273,7 +273,18 @@ function ExerciseImage({ exercise: ex, size = 52, color }) {
         </div>
       )}
       {!showPlaceholder ? (
-        <img src={imageUrl} alt={ex.name} className={`w-full h-full object-cover transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`} onLoad={() => { setLoaded(true); setLoading(false) }} onError={() => { setImgError(true); setLoading(false) }} />
+        <img
+          src={imageUrl}
+          alt={ex.name}
+          crossOrigin="anonymous"
+          className={`w-full h-full object-cover transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+          onLoad={() => { setLoaded(true); setLoading(false) }}
+          onError={() => {
+            console.error(`[ImageLogger] Failed to load GIF for ${ex.name}:`, imageUrl)
+            setImgError(true);
+            setLoading(false)
+          }}
+        />
       ) : (
         <div className="flex flex-col items-center justify-center w-full h-full bg-surface">
           <Dumbbell className="text-dim/50" style={{ width: size * 0.4, height: size * 0.4 }} />

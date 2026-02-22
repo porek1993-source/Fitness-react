@@ -17,6 +17,21 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   realtime: { params: { eventsPerSecond: 10 } },
 })
 
+// Resilience helper for external APIs
+export async function fetchWithTimeout(url, options = {}, timeout = 5000) {
+  const controller = new AbortController()
+  const id = setTimeout(() => controller.abort(), timeout)
+
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal })
+    clearTimeout(id)
+    return response
+  } catch (error) {
+    clearTimeout(id)
+    throw error
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // OFFLINE SYNC QUEUE
 // Workouts logged offline are stored in localStorage and replayed on reconnect.
@@ -84,7 +99,7 @@ export async function getExerciseData(exerciseName) {
       }
     }
 
-    const res = await fetch(url, options)
+    const res = await fetchWithTimeout(url, options, 5000)
     if (!res.ok) throw new Error(`RapidAPI error: ${res.status}`)
 
     const apiData = await res.json()

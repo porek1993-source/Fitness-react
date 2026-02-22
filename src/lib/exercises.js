@@ -1,5 +1,5 @@
 // src/lib/exercises.js
-import { supabase } from './supabase'
+import { supabase, fetchWithTimeout } from './supabase'
 
 const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY
 const RAPIDAPI_HOST = 'exercisedb.p.rapidapi.com'
@@ -26,7 +26,7 @@ export async function ensureExerciseImage(exercise) {
             }
         }
 
-        const response = await fetch(url, options)
+        const response = await fetchWithTimeout(url, options, 5000)
         const data = await response.json()
 
         if (Array.isArray(data) && data.length > 0) {
